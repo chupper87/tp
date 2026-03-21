@@ -9,6 +9,7 @@ from starlette_context.middleware.raw_middleware import RawContextMiddleware
 from starlette_context.plugins.correlation_id import CorrelationIdPlugin
 from structlog.contextvars import bind_contextvars, clear_contextvars
 
+import employees
 import idp
 from api_core import GenericAPIResponse, __api_exception_handlers
 from config import config
@@ -18,6 +19,7 @@ log = get_logger(__name__)
 
 routers = [
     idp.router,
+    employees.router,
 ]
 
 
