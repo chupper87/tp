@@ -32,7 +32,11 @@ def _configure_structlog(log_as_json: bool) -> None:
 
 
 def _setup_logging() -> None:
-    log_as_json = os.environ.get("LOG_AS_JSON", "false").lower() not in ("0", "false", "no")
+    log_as_json = os.environ.get("LOG_AS_JSON", "false").lower() not in (
+        "0",
+        "false",
+        "no",
+    )
 
     logging.basicConfig(
         level=logging.INFO,

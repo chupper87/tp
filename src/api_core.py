@@ -69,7 +69,8 @@ def responses_from_api_errors(
     def model_from_errors(errors):
         tup = tuple(errors)
         if len(tup) > 1:
-            return Union[tup]  # type: ignore
+            return Union[tup]  # type: ignore[valid-type]
+        assert len(tup) == 1
         return tup[0]
 
     return {

@@ -21,7 +21,7 @@ class Config(BaseSettings):
     LOG_AS_JSON: bool = False
 
 
-config = Config()
+config = Config()  # type: ignore[call-arg]
 
 
 def get_database_url() -> str:
