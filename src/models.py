@@ -4,8 +4,8 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Literal, Optional
 
-from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Index, Integer
-from sqlalchemy import String, Text, UniqueConstraint
+from sqlalchemy import Boolean, CheckConstraint, Date, DateTime, Float, ForeignKey
+from sqlalchemy import Index, Integer, String, Text, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.ext.asyncio import AsyncAttrs
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -81,6 +81,7 @@ class TimeOfDay(StrEnum):
     MIDDAY = "midday"
     AFTERNOON = "afternoon"
     EVENING = "evening"
+    NIGHT = "night"
 
 
 class TimeFlexibility(StrEnum):
@@ -220,6 +221,9 @@ class Customer(Base):
     schedules: Mapped[list["ScheduleCustomer"]] = relationship(back_populates="customer")
     care_visits: Mapped[list["CareVisit"]] = relationship(back_populates="customer")
     measures: Mapped[list["CustomerMeasure"]] = relationship(back_populates="customer")
+    schedule_measures: Mapped[list["ScheduleMeasure"]] = relationship(
+        back_populates="customer"
+    )
 
 
 class CustomerMeasure(Base):
@@ -291,25 +295,8 @@ class Measure(Base):
         Index("ix_measure_active_time", "is_active", "time_of_day"),
     )
 
-    care_visits: Mapped[list["MeasureCareVisit"]] = relationship(
-        back_populates="measure"
-    )
     schedules: Mapped[list["ScheduleMeasure"]] = relationship(back_populates="measure")
     customers: Mapped[list["CustomerMeasure"]] = relationship(back_populates="measure")
-
-
-class MeasureCareVisit(Base):
-    __tablename__ = "measure_care_visit"
-
-    measure_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("measures.id"), primary_key=True
-    )
-    care_visit_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("care_visits.id"), primary_key=True
-    )
-
-    measure: Mapped["Measure"] = relationship(back_populates="care_visits")
-    care_visit: Mapped["CareVisit"] = relationship(back_populates="measures")
 
 
 # ---------------------------------------------------------------------------
@@ -329,8 +316,27 @@ class Schedule(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
 
-    __table_args__ = (Index("ix_schedule_date", "date"),)
+    __table_args__ = (
+        CheckConstraint(
+            "shift_type IS NOT NULL OR custom_shift IS NOT NULL",
+            name="ck__schedule_has_shift",
+        ),
+        Index("ix_schedule_date", "date"),
+        Index(
+            "uq__schedule_date_shift",
+            "date",
+            "shift_type",
+            unique=True,
+            postgresql_where=text("shift_type IS NOT NULL"),
+        ),
+    )
 
     employees: Mapped[list["ScheduleEmployee"]] = relationship(back_populates="schedule")
     customers: Mapped[list["ScheduleCustomer"]] = relationship(back_populates="schedule")
@@ -373,6 +379,9 @@ class ScheduleMeasure(Base):
     schedule_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("schedules.id"), nullable=False
     )
+    customer_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("customers.id"), nullable=False
+    )
     measure_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("measures.id"), nullable=False
     )
@@ -383,7 +392,17 @@ class ScheduleMeasure(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
+    __table_args__ = (
+        UniqueConstraint(
+            "schedule_id",
+            "customer_id",
+            "measure_id",
+            name="uq__schedule_customer_measure",
+        ),
+    )
+
     schedule: Mapped["Schedule"] = relationship(back_populates="measures")
+    customer: Mapped["Customer"] = relationship(back_populates="schedule_measures")
     measure: Mapped["Measure"] = relationship(back_populates="schedules")
 
 
@@ -455,9 +474,6 @@ class CareVisit(Base):
     schedule: Mapped["Schedule"] = relationship("Schedule", back_populates="care_visits")
     customer: Mapped["Customer"] = relationship(back_populates="care_visits")
     employees: Mapped[list["EmployeeCareVisit"]] = relationship(
-        back_populates="care_visit"
-    )
-    measures: Mapped[list["MeasureCareVisit"]] = relationship(
         back_populates="care_visit"
     )
 
