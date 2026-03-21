@@ -34,10 +34,22 @@ Swedish home care scheduling. Core entities:
 | `Employee` | Care worker — role, employment type, absences |
 | `Customer` | Care recipient — care level, approved hours, address, key code |
 | `Measure` | Care task, e.g. "Shower", "Breakfast" — standard duration, frequency |
-| `Schedule` | A work day/shift: date + shift type + assigned employees + customers |
-| `CareVisit` | One visit: employee → customer, with status (planned/completed/cancelled…) |
+| `Schedule` | A work shift: date + shift type (or custom label) + pool of assigned employees + customers |
+| `ScheduleMeasure` | A measure planned for a specific customer on a specific schedule — duration, time_of_day override |
+| `CareVisit` | One visit: one or more employees → one customer, planned duration always set by admin |
+| `EmployeeCareVisit` | Junction: which employees performed a visit — supports double bemanning (two workers for complex customers) |
 | `Absence` | Employee absence: sick leave, VAB, vacation, parental leave, etc. |
 | `ScheduleArchive` | JSONB snapshot of a finalized schedule for historical audit |
+
+### Domain decisions (validated, do not revisit without reason)
+
+- **Shifts**: four standard types (`morning`, `day`, `evening`, `night`) plus a free-text `custom_shift` for ad-hoc workers (e.g. someone covering only 3 hours). At least one must be set. Standard shifts are unique per date; multiple custom shifts on the same date are allowed.
+- **Night starts at 22:00**: visits after 22:00 carry `time_of_day = "night"`. A "Tillsyn" (welfare check) can be daytime (flexible) or night (must be after 22:00 per kommunen rules). This distinction lives on `ScheduleMeasure.time_of_day` and is a planning warning for admins — billing and registration are handled by Paragå, not this system.
+- **Double bemanning**: some customers need two workers per visit (e.g. bedridden/heavy lift). `CareVisit` therefore links to employees via the `EmployeeCareVisit` junction (with `is_primary`), not a single `employee_id`.
+- **Duration always known at creation**: admins plan visit duration from the customer's approved monthly hour pool before the shift. `CareVisit.duration` is NOT NULL — it is set when the visit is created, not after completion.
+- **ScheduleMeasure owns the customer link**: a planned measure on a schedule must be tied to a specific customer (`schedule_id + customer_id + measure_id` unique). Without `customer_id`, you cannot tell whose "Shower" it is on a multi-customer shift.
+- **MeasureCareVisit dropped for MVP**: which measures were actually performed during a visit is registered in Paragå by the worker. This system does not replicate that.
+- **This system does not replace Paragå**: tp is a planning and advisory tool for admins. Execution (scan-in/scan-out, billing, measure registration) stays in Paragå.
 
 ---
 
@@ -152,10 +164,10 @@ make postgres     # docker compose database
 
 ## Module roadmap (MVP order)
 
-1. `employees/` — CRUD, role management, absence tracking
-2. `customers/` — CRUD, care level, approved hours
-3. `measures/` — care task definitions with duration/frequency
-4. `schedules/` — schedule creation, employee/customer assignment
-5. `care_visits/` — visit tracking, status transitions
+1. ✅ `employees/` — CRUD, role management
+2. ✅ `customers/` — CRUD, care level, approved hours
+3. ✅ `measures/` — care task definitions with duration/frequency
+4. `schedules/` — schedule creation, employee/customer assignment, planned measures per customer
+5. `care_visits/` — visit creation, status transitions, double bemanning support
 6. `absences/` — absence registration, overlap detection
 7. `reports/` — worked hours, completed visits
