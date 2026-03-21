@@ -12,6 +12,7 @@ from structlog.contextvars import bind_contextvars, clear_contextvars
 import customers
 import employees
 import idp
+import measures
 from api_core import GenericAPIResponse, __api_exception_handlers
 from config import config
 from log_setup import get_logger
@@ -22,6 +23,7 @@ routers = [
     idp.router,
     employees.router,
     customers.router,
+    measures.router,
 ]
 
 
