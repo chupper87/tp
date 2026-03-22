@@ -1,0 +1,141 @@
+from datetime import date
+
+import pytest_asyncio
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from idp.email_and_password.repo import hash_password
+from models import (
+    Customer,
+    Employee,
+    Measure,
+    Schedule,
+    ScheduleCustomer,
+    ScheduleEmployee,
+    User,
+)
+
+
+@pytest_asyncio.fixture
+async def employee(db: AsyncSession) -> Employee:
+    u = User(
+        email="worker@test.com",
+        hashed_password=hash_password("pw"),
+        is_active=True,
+        is_admin=False,
+    )
+    db.add(u)
+    await db.commit()
+    await db.refresh(u)
+
+    e = Employee(first_name="Pelle", last_name="Svensson", user_id=u.id)
+    db.add(e)
+    await db.commit()
+    await db.refresh(e)
+    return e
+
+
+@pytest_asyncio.fixture
+async def employee2(db: AsyncSession) -> Employee:
+    """Second employee for double bemanning tests."""
+    u = User(
+        email="worker2@test.com",
+        hashed_password=hash_password("pw"),
+        is_active=True,
+        is_admin=False,
+    )
+    db.add(u)
+    await db.commit()
+    await db.refresh(u)
+
+    e = Employee(first_name="Anna", last_name="Johansson", user_id=u.id)
+    db.add(e)
+    await db.commit()
+    await db.refresh(e)
+    return e
+
+
+@pytest_asyncio.fixture
+async def customer(db: AsyncSession) -> Customer:
+    c = Customer(
+        first_name="Birgitta",
+        last_name="Karlsson",
+        key_number=1001,
+        address="Storgatan 1",
+    )
+    db.add(c)
+    await db.commit()
+    await db.refresh(c)
+    return c
+
+
+@pytest_asyncio.fixture
+async def customer2(db: AsyncSession) -> Customer:
+    c = Customer(
+        first_name="Sven",
+        last_name="Eriksson",
+        key_number=1002,
+        address="Lillgatan 5",
+    )
+    db.add(c)
+    await db.commit()
+    await db.refresh(c)
+    return c
+
+
+@pytest_asyncio.fixture
+async def measure(db: AsyncSession) -> Measure:
+    m = Measure(name="Shower", default_duration=30, is_standard=True)
+    db.add(m)
+    await db.commit()
+    await db.refresh(m)
+    return m
+
+
+@pytest_asyncio.fixture
+async def schedule(db: AsyncSession) -> Schedule:
+    s = Schedule(date=date(2026, 4, 1), shift_type="morning")
+    db.add(s)
+    await db.commit()
+    await db.refresh(s)
+    return s
+
+
+@pytest_asyncio.fixture
+async def schedule_with_employee(
+    db: AsyncSession, schedule: Schedule, employee: Employee
+) -> Schedule:
+    """Schedule with one employee assigned."""
+    db.add(ScheduleEmployee(schedule_id=schedule.id, employee_id=employee.id))
+    await db.commit()
+    return schedule
+
+
+@pytest_asyncio.fixture
+async def schedule_with_employee_and_customer(
+    db: AsyncSession,
+    schedule_with_employee: Schedule,
+    customer: Customer,
+) -> Schedule:
+    """Schedule with one employee and one customer assigned."""
+    db.add(
+        ScheduleCustomer(schedule_id=schedule_with_employee.id, customer_id=customer.id)
+    )
+    await db.commit()
+    return schedule_with_employee
+
+
+@pytest_asyncio.fixture
+async def schedule_with_two_employees_and_customer(
+    db: AsyncSession,
+    schedule_with_employee_and_customer: Schedule,
+    employee2: Employee,
+) -> Schedule:
+    """Schedule with two employees and one customer — for double bemanning tests."""
+    db.add(
+        ScheduleEmployee(
+            schedule_id=schedule_with_employee_and_customer.id,
+            employee_id=employee2.id,
+        )
+    )
+    await db.commit()
+    return schedule_with_employee_and_customer

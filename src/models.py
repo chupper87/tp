@@ -474,7 +474,7 @@ class CareVisit(Base):
     schedule: Mapped["Schedule"] = relationship("Schedule", back_populates="care_visits")
     customer: Mapped["Customer"] = relationship(back_populates="care_visits")
     employees: Mapped[list["EmployeeCareVisit"]] = relationship(
-        back_populates="care_visit"
+        back_populates="care_visit", cascade="all, delete-orphan"
     )
 
 

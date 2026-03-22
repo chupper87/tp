@@ -9,6 +9,7 @@ from starlette_context.middleware.raw_middleware import RawContextMiddleware
 from starlette_context.plugins.correlation_id import CorrelationIdPlugin
 from structlog.contextvars import bind_contextvars, clear_contextvars
 
+import care_visits
 import customers
 import employees
 import idp
@@ -26,6 +27,7 @@ routers = [
     customers.router,
     measures.router,
     schedules.router,
+    care_visits.router,
 ]
 
 
