@@ -78,6 +78,30 @@ async def list_schedules(
     return list(result.scalars().all())
 
 
+async def list_schedules_for_employee(
+    db: AsyncSession,
+    *,
+    employee_id: uuid.UUID,
+    date_from: date_type | None = None,
+    date_to: date_type | None = None,
+    shift_type: str | None = None,
+) -> list[Schedule]:
+    """List schedules where the given employee is assigned."""
+    q = (
+        select(Schedule)
+        .join(ScheduleEmployee, ScheduleEmployee.schedule_id == Schedule.id)
+        .where(ScheduleEmployee.employee_id == employee_id)
+    )
+    if date_from is not None:
+        q = q.where(Schedule.date >= date_from)
+    if date_to is not None:
+        q = q.where(Schedule.date <= date_to)
+    if shift_type is not None:
+        q = q.where(Schedule.shift_type == shift_type)
+    result = await db.execute(q.order_by(Schedule.date))
+    return list(result.scalars().all())
+
+
 async def _get_by_date_and_shift(
     db: AsyncSession, d: date_type, shift_type: str
 ) -> Schedule | None:

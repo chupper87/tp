@@ -1,13 +1,34 @@
 from fastapi import Depends, HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db as get_db
 from idp.core import get_authenticated_admin_user as get_authenticated_admin_user
 from idp.core import get_authenticated_user as get_authenticated_user
 from log_setup import get_logger
-from models import Base
+from models import Base, Employee, User
 
 log = get_logger(__name__)
+
+
+async def get_current_employee(
+    user: User = Depends(get_authenticated_user),
+    db: AsyncSession = Depends(get_db),
+) -> Employee:
+    """
+    Resolve the authenticated user's linked Employee record.
+
+    Raises 403 if the user has no employee profile (e.g. pure admin accounts).
+    This is used by public API endpoints where employees view their own data.
+    """
+    result = await db.execute(select(Employee).where(Employee.user_id == user.id))
+    employee = result.scalar_one_or_none()
+    if employee is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No employee profile linked to this user",
+        )
+    return employee
 
 
 def get_model_by_id_or_404(model: type[Base]):

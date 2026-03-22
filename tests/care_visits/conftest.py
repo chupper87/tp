@@ -1,8 +1,10 @@
 from datetime import date
 
 import pytest_asyncio
+from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from idp.core import AUTH_COOKIE_NAME, AuthenticationJWT
 from idp.email_and_password.repo import hash_password
 from models import (
     Customer,
@@ -139,3 +141,22 @@ async def schedule_with_two_employees_and_customer(
     )
     await db.commit()
     return schedule_with_employee_and_customer
+
+
+@pytest_asyncio.fixture
+async def employee_client(client: AsyncClient, employee: Employee):
+    """Separate HTTP client authenticated as the employee's user.
+
+    Uses its own AsyncClient so it doesn't share cookies with admin_client.
+    Depends on ``client`` to ensure the DB override is active.
+    """
+    from httpx import ASGITransport
+
+    from api import app
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as ac:
+        jwt = AuthenticationJWT.create(user_id=employee.user_id)
+        ac.cookies.set(AUTH_COOKIE_NAME, jwt.token)
+        yield ac

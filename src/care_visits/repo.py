@@ -92,6 +92,31 @@ async def list_care_visits(
     return list(result.scalars().all())
 
 
+async def list_care_visits_for_employee(
+    db: AsyncSession,
+    *,
+    employee_id: uuid.UUID,
+    status: str | None = None,
+    date_from: date_type | None = None,
+    date_to: date_type | None = None,
+) -> list[CareVisit]:
+    """List care visits where the given employee is assigned."""
+    q = (
+        select(CareVisit)
+        .join(EmployeeCareVisit, EmployeeCareVisit.care_visit_id == CareVisit.id)
+        .where(EmployeeCareVisit.employee_id == employee_id)
+        .options(*_relations())
+    )
+    if status is not None:
+        q = q.where(CareVisit.status == status)
+    if date_from is not None:
+        q = q.where(CareVisit.date >= date_from)
+    if date_to is not None:
+        q = q.where(CareVisit.date <= date_to)
+    result = await db.execute(q.order_by(CareVisit.date, CareVisit.created_at))
+    return list(result.scalars().all())
+
+
 async def _check_employee_on_schedule(
     db: AsyncSession, schedule_id: uuid.UUID, employee_id: uuid.UUID
 ) -> None:
