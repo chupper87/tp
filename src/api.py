@@ -15,6 +15,7 @@ import customers
 import employees
 import idp
 import measures
+import permissions
 import reports
 import schedules
 from api_core import GenericAPIResponse, __api_exception_handlers
@@ -31,6 +32,7 @@ routers = [
     schedules.router,
     care_visits.router,
     absences.router,
+    permissions.router,
     reports.router,
 ]
 

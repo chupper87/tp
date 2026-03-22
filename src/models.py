@@ -513,3 +513,83 @@ class Absence(Base):
     )
 
     employee: Mapped["Employee"] = relationship(back_populates="absences")
+
+
+# ---------------------------------------------------------------------------
+# Permissions (RBAC)
+# ---------------------------------------------------------------------------
+
+
+class ActionType(StrEnum):
+    READ = "read"
+    WRITE = "write"
+    ADMIN = "admin"
+
+
+class ResourceType(StrEnum):
+    EMPLOYEE = "employee"
+    CUSTOMER = "customer"
+    SCHEDULE = "schedule"
+    CARE_VISIT = "care_visit"
+    ABSENCE = "absence"
+
+
+class Permission(Base):
+    """
+    Fine-grained permission entry.
+
+    principal: "user:<uuid>" — who has the permission
+    resource:  "schedule:*" (all schedules) or "schedule:<uuid>" (specific instance)
+    action:    "read", "write", or "admin" — hierarchical (admin > write > read)
+
+    One action level per principal-resource pair (unique constraint).
+    To upgrade, update the action — don't create a second row.
+    """
+
+    __tablename__ = "permissions"
+
+    id: Mapped[uuid.UUID] = primary_key()
+    principal: Mapped[str] = mapped_column(String, nullable=False)
+    resource: Mapped[str] = mapped_column(String, nullable=False)
+    action: Mapped[Literal["read", "write", "admin"]] = mapped_column(
+        String, nullable=False
+    )
+    created_by: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    __table_args__ = (
+        UniqueConstraint("principal", "resource", name="uq__permission"),
+        Index("ix_permission_principal", "principal"),
+        Index("ix_permission_resource", "resource"),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Audit Trail
+# ---------------------------------------------------------------------------
+
+
+class AuditEntry(Base):
+    """Immutable record of who changed what, when."""
+
+    __tablename__ = "audit_entries"
+
+    id: Mapped[uuid.UUID] = primary_key()
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    action: Mapped[str] = mapped_column(String(50), nullable=False)
+    resource_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    resource_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    changes: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    __table_args__ = (
+        Index("ix_audit_resource", "resource_type", "resource_id"),
+        Index("ix_audit_user", "user_id"),
+        Index("ix_audit_created_at", "created_at"),
+    )
