@@ -17,7 +17,7 @@ export default function Placeholder() {
         </div>
         <h2 className="font-display text-lg font-700 text-moon mb-2">{name}</h2>
         <p className="text-sm text-sediment max-w-xs">
-          This section is under development. The API is ready — the UI is coming next.
+          Den här sidan är under utveckling. API:et är klart — gränssnittet kommer snart.
         </p>
       </div>
     </div>

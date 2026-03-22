@@ -24,22 +24,22 @@ interface NavItem {
 }
 
 const adminNav: NavItem[] = [
-  { to: "/", icon: LayoutDashboard, label: "Dashboard" },
-  { to: "/employees", icon: Users, label: "Employees" },
-  { to: "/customers", icon: Heart, label: "Customers" },
-  { to: "/measures", icon: ListChecks, label: "Measures" },
-  { to: "/schedules", icon: CalendarDays, label: "Schedules" },
-  { to: "/visits", icon: ClipboardCheck, label: "Care Visits" },
-  { to: "/absences", icon: CalendarOff, label: "Absences" },
-  { to: "/reports", icon: BarChart3, label: "Reports" },
-  { to: "/audit", icon: ScrollText, label: "Audit Log" },
+  { to: "/", icon: LayoutDashboard, label: "Översikt" },
+  { to: "/employees", icon: Users, label: "Anställda" },
+  { to: "/customers", icon: Heart, label: "Kunder" },
+  { to: "/measures", icon: ListChecks, label: "Insatser" },
+  { to: "/schedules", icon: CalendarDays, label: "Scheman" },
+  { to: "/visits", icon: ClipboardCheck, label: "Besök" },
+  { to: "/absences", icon: CalendarOff, label: "Frånvaro" },
+  { to: "/reports", icon: BarChart3, label: "Rapporter" },
+  { to: "/audit", icon: ScrollText, label: "Händelselogg" },
 ];
 
 const employeeNav: NavItem[] = [
-  { to: "/", icon: LayoutDashboard, label: "Dashboard" },
-  { to: "/my/schedule", icon: CalendarDays, label: "My Schedule" },
-  { to: "/my/visits", icon: ClipboardCheck, label: "My Visits" },
-  { to: "/my/absences", icon: CalendarOff, label: "My Absences" },
+  { to: "/", icon: LayoutDashboard, label: "Översikt" },
+  { to: "/my/schedule", icon: CalendarDays, label: "Mitt schema" },
+  { to: "/my/visits", icon: ClipboardCheck, label: "Mina besök" },
+  { to: "/my/absences", icon: CalendarOff, label: "Min frånvaro" },
 ];
 
 export default function Sidebar() {
@@ -110,7 +110,7 @@ export default function Sidebar() {
           <div className="px-3 py-2 mb-1">
             <p className="text-xs text-mist/80 truncate">{user.email}</p>
             <p className="text-[10px] text-sediment uppercase tracking-wider mt-0.5">
-              {isAdmin ? "Administrator" : "Employee"}
+              {isAdmin ? "Administratör" : "Anställd"}
             </p>
           </div>
         )}
@@ -123,7 +123,7 @@ export default function Sidebar() {
           }`}
         >
           <LogOut className="w-[18px] h-[18px] shrink-0" strokeWidth={1.5} />
-          {!collapsed && <span className="text-sm font-500">Sign out</span>}
+          {!collapsed && <span className="text-sm font-500">Logga ut</span>}
         </button>
 
         {/* Collapse toggle */}
@@ -138,7 +138,7 @@ export default function Sidebar() {
           ) : (
             <>
               <ChevronLeft className="w-[18px] h-[18px]" strokeWidth={1.5} />
-              <span className="text-sm font-500">Collapse</span>
+              <span className="text-sm font-500">Minimera</span>
             </>
           )}
         </button>

@@ -71,9 +71,16 @@ function thirtyDaysAgo() {
   return d.toISOString().split("T")[0];
 }
 
+const shiftLabels: Record<string, string> = {
+  morning: "Morgon",
+  day: "Dag",
+  evening: "Kväll",
+  night: "Natt",
+};
+
 function formatShift(s: ScheduleOut) {
-  if (s.shift_type) return s.shift_type.charAt(0).toUpperCase() + s.shift_type.slice(1);
-  return s.custom_shift ?? "Custom";
+  if (s.shift_type) return shiftLabels[s.shift_type] ?? s.shift_type;
+  return s.custom_shift ?? "Anpassat";
 }
 
 const shiftColors: Record<string, string> = {
@@ -266,9 +273,9 @@ export default function Dashboard() {
     <div className="p-8 max-w-[1400px]">
       {/* Header */}
       <div className="mb-8 animate-fade-up">
-        <h1 className="font-display text-2xl font-800 text-moon">Dashboard</h1>
+        <h1 className="font-display text-2xl font-800 text-moon">Översikt</h1>
         <p className="text-sm text-mist/50 mt-1">
-          Overview for {new Date().toLocaleDateString("en-SE", { month: "long", day: "numeric", year: "numeric" })}
+          {new Date().toLocaleDateString("sv-SE", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
         </p>
       </div>
 
@@ -276,31 +283,31 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <StatCard
           icon={Users}
-          label="Active employees"
+          label="Aktiva anställda"
           value={activeEmployees}
-          sub={`${employees?.length ?? 0} total`}
+          sub={`${employees?.length ?? 0} totalt`}
           delay={1}
         />
         <StatCard
           icon={Heart}
-          label="Active customers"
+          label="Aktiva kunder"
           value={activeCustomers}
-          sub={`${customers?.length ?? 0} total`}
+          sub={`${customers?.length ?? 0} totalt`}
           delay={2}
         />
         <StatCard
           icon={ClipboardCheck}
-          label="Completed visits"
+          label="Genomförda besök"
           value={completedVisits}
-          sub={`Last 30 days`}
+          sub="Senaste 30 dagarna"
           trend="up"
           delay={3}
         />
         <StatCard
           icon={CalendarDays}
-          label="Planned visits"
+          label="Planerade besök"
           value={plannedVisits}
-          sub="Upcoming"
+          sub="Kommande"
           delay={4}
         />
       </div>
@@ -312,13 +319,13 @@ export default function Dashboard() {
           <div className="flex items-center justify-between mb-5">
             <div className="flex items-center gap-2">
               <Clock className="w-4 h-4 text-glow" strokeWidth={1.5} />
-              <h2 className="font-display font-700 text-moon">Today's Shifts</h2>
+              <h2 className="font-display font-700 text-moon">Dagens pass</h2>
             </div>
             <Link
               to="/schedules"
               className="text-xs text-mist/50 hover:text-glow transition-colors flex items-center gap-1"
             >
-              View all <ArrowRight className="w-3 h-3" />
+              Visa alla <ArrowRight className="w-3 h-3" />
             </Link>
           </div>
 
@@ -343,12 +350,12 @@ export default function Dashboard() {
           ) : (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <CalendarDays className="w-10 h-10 text-sediment mb-3" strokeWidth={1} />
-              <p className="text-sm text-sediment">No shifts scheduled today</p>
+              <p className="text-sm text-sediment">Inga pass schemalagda idag</p>
               <Link
                 to="/schedules"
                 className="mt-3 text-xs text-glow/70 hover:text-glow transition-colors"
               >
-                Create a schedule
+                Skapa schema
               </Link>
             </div>
           )}
@@ -359,13 +366,13 @@ export default function Dashboard() {
           <div className="flex items-center justify-between mb-5">
             <div className="flex items-center gap-2">
               <TrendingUp className="w-4 h-4 text-glow" strokeWidth={1.5} />
-              <h2 className="font-display font-700 text-moon">Continuity</h2>
+              <h2 className="font-display font-700 text-moon">Kontinuitet</h2>
             </div>
             <Link
               to="/reports"
               className="text-xs text-mist/50 hover:text-glow transition-colors"
             >
-              Reports
+              Rapporter
             </Link>
           </div>
 
@@ -374,11 +381,11 @@ export default function Dashboard() {
             <div className="flex items-center gap-4 mb-5 p-3 rounded-lg bg-mid/30 border border-reef/50">
               <ScoreRing score={continuity.average_score} />
               <div>
-                <p className="text-xs text-mist/60">Avg. score</p>
+                <p className="text-xs text-mist/60">Snittpoäng</p>
                 <p className="font-data text-lg font-600 text-moon">
                   {(continuity.average_score * 100).toFixed(1)}%
                 </p>
-                <p className="text-[10px] text-sediment">Last 30 days</p>
+                <p className="text-[10px] text-sediment">Senaste 30 dagarna</p>
               </div>
             </div>
           )}
@@ -389,7 +396,7 @@ export default function Dashboard() {
               <div className="flex items-center gap-1.5 mb-1">
                 <AlertTriangle className="w-3 h-3 text-sun" />
                 <p className="text-[10px] text-sun/80 uppercase tracking-wider font-600">
-                  Needs attention
+                  Behöver åtgärd
                 </p>
               </div>
               {lowContinuity.slice(0, 5).map((row) => (
@@ -402,7 +409,7 @@ export default function Dashboard() {
                       {row.first_name} {row.last_name}
                     </p>
                     <p className="text-[10px] text-sediment font-data">
-                      {row.unique_employees} workers / {row.total_visits} visits
+                      {row.unique_employees} personal / {row.total_visits} besök
                     </p>
                   </div>
                   <ScoreRing score={row.continuity_score} size={40} />
@@ -411,7 +418,7 @@ export default function Dashboard() {
             </div>
           ) : (
             <div className="text-center py-4">
-              <p className="text-xs text-kelp/60">All continuity scores above 60%</p>
+              <p className="text-xs text-kelp/60">Alla kontinuitetspoäng över 60%</p>
             </div>
           )}
         </div>
@@ -422,11 +429,19 @@ export default function Dashboard() {
         <div className="mt-4 card-glow rounded-xl bg-ocean/60 p-6 animate-fade-up stagger-6">
           <div className="flex items-center gap-2 mb-4">
             <ClipboardCheck className="w-4 h-4 text-glow" strokeWidth={1.5} />
-            <h2 className="font-display font-700 text-moon">Visit Summary</h2>
-            <span className="text-xs text-sediment font-data ml-auto">Last 30 days</span>
+            <h2 className="font-display font-700 text-moon">Besökssammanställning</h2>
+            <span className="text-xs text-sediment font-data ml-auto">Senaste 30 dagarna</span>
           </div>
           <div className="flex gap-6 flex-wrap">
             {visitSummary.by_status.map((s) => {
+              const statusLabels: Record<string, string> = {
+                completed: "Genomförda",
+                planned: "Planerade",
+                canceled: "Avbokade",
+                no_show: "Uteblivna",
+                partially_completed: "Delvis genomförda",
+                rescheduled: "Ombokade",
+              };
               const statusColors: Record<string, string> = {
                 completed: "text-kelp",
                 planned: "text-current",
@@ -440,8 +455,8 @@ export default function Dashboard() {
                   <span className={`font-data text-xl font-700 ${statusColors[s.status] ?? "text-mist"}`}>
                     {s.count}
                   </span>
-                  <span className="text-xs text-sediment capitalize">
-                    {s.status.replace("_", " ")}
+                  <span className="text-xs text-sediment">
+                    {statusLabels[s.status] ?? s.status}
                   </span>
                 </div>
               );

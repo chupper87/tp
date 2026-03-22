@@ -24,8 +24,15 @@ const roleBadge: Record<string, string> = {
   employee: "bg-mist/10 text-mist border-mist/20",
 };
 
+const roleLabels: Record<string, string> = {
+  admin: "Admin",
+  assistant_nurse: "Undersköterska",
+  care_assistant: "Vårdbiträde",
+  employee: "Anställd",
+};
+
 function formatRole(role: string) {
-  return role.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  return roleLabels[role] ?? role;
 }
 
 export default function Employees() {
@@ -51,14 +58,14 @@ export default function Employees() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6 animate-fade-up">
         <div>
-          <h1 className="font-display text-2xl font-800 text-moon">Employees</h1>
+          <h1 className="font-display text-2xl font-800 text-moon">Anställda</h1>
           <p className="text-sm text-mist/50 mt-1">
-            {employees?.length ?? 0} employees registered
+            {employees?.length ?? 0} anställda registrerade
           </p>
         </div>
         <button className="flex items-center gap-2 h-10 px-4 rounded-lg bg-glow/90 hover:bg-glow text-abyss font-600 text-sm transition-colors cursor-pointer">
           <Plus className="w-4 h-4" />
-          Add employee
+          Lägg till
         </button>
       </div>
 
@@ -67,7 +74,7 @@ export default function Employees() {
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-sediment" />
         <input
           type="text"
-          placeholder="Search employees..."
+          placeholder="Sök anställda..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="w-full max-w-sm h-10 pl-10 pr-4 rounded-lg bg-ocean border border-reef text-moon placeholder:text-sediment text-sm font-display focus:border-glow/50 focus:outline-none transition-colors"
@@ -87,16 +94,16 @@ export default function Employees() {
             <thead>
               <tr className="border-b border-reef">
                 <th className="text-left px-5 py-3 text-[10px] font-600 text-mist/50 uppercase tracking-wider">
-                  Name
+                  Namn
                 </th>
                 <th className="text-left px-5 py-3 text-[10px] font-600 text-mist/50 uppercase tracking-wider">
-                  Email
+                  E-post
                 </th>
                 <th className="text-left px-5 py-3 text-[10px] font-600 text-mist/50 uppercase tracking-wider">
-                  Role
+                  Roll
                 </th>
                 <th className="text-left px-5 py-3 text-[10px] font-600 text-mist/50 uppercase tracking-wider">
-                  Hours / week
+                  Timmar / vecka
                 </th>
                 <th className="text-left px-5 py-3 text-[10px] font-600 text-mist/50 uppercase tracking-wider">
                   Status
@@ -144,7 +151,7 @@ export default function Employees() {
                           emp.is_active ? "bg-kelp" : "bg-sediment"
                         }`}
                       />
-                      {emp.is_active ? "Active" : "Inactive"}
+                      {emp.is_active ? "Aktiv" : "Inaktiv"}
                     </span>
                   </td>
                 </tr>
@@ -154,7 +161,7 @@ export default function Employees() {
                   <td colSpan={5} className="text-center py-12">
                     <Users className="w-10 h-10 text-sediment mx-auto mb-3" strokeWidth={1} />
                     <p className="text-sm text-sediment">
-                      {search ? "No employees match your search" : "No employees found"}
+                      {search ? "Inga anställda matchar din sökning" : "Inga anställda hittades"}
                     </p>
                   </td>
                 </tr>

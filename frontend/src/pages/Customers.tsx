@@ -22,6 +22,12 @@ const careLevelBadge: Record<string, string> = {
   low: "bg-kelp/10 text-kelp border-kelp/20",
 };
 
+const careLevelLabels: Record<string, string> = {
+  high: "Hög",
+  medium: "Medel",
+  low: "Låg",
+};
+
 export default function Customers() {
   const [search, setSearch] = useState("");
 
@@ -44,14 +50,14 @@ export default function Customers() {
     <div className="p-8 max-w-[1400px]">
       <div className="flex items-center justify-between mb-6 animate-fade-up">
         <div>
-          <h1 className="font-display text-2xl font-800 text-moon">Customers</h1>
+          <h1 className="font-display text-2xl font-800 text-moon">Kunder</h1>
           <p className="text-sm text-mist/50 mt-1">
-            {customers?.length ?? 0} care recipients
+            {customers?.length ?? 0} vårdtagare
           </p>
         </div>
         <button className="flex items-center gap-2 h-10 px-4 rounded-lg bg-glow/90 hover:bg-glow text-abyss font-600 text-sm transition-colors cursor-pointer">
           <Plus className="w-4 h-4" />
-          Add customer
+          Lägg till
         </button>
       </div>
 
@@ -59,7 +65,7 @@ export default function Customers() {
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-sediment" />
         <input
           type="text"
-          placeholder="Search customers..."
+          placeholder="Sök kunder..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="w-full max-w-sm h-10 pl-10 pr-4 rounded-lg bg-ocean border border-reef text-moon placeholder:text-sediment text-sm font-display focus:border-glow/50 focus:outline-none transition-colors"
@@ -77,11 +83,11 @@ export default function Customers() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-reef">
-                <th className="text-left px-5 py-3 text-[10px] font-600 text-mist/50 uppercase tracking-wider">Name</th>
-                <th className="text-left px-5 py-3 text-[10px] font-600 text-mist/50 uppercase tracking-wider">Address</th>
-                <th className="text-left px-5 py-3 text-[10px] font-600 text-mist/50 uppercase tracking-wider">Care Level</th>
-                <th className="text-left px-5 py-3 text-[10px] font-600 text-mist/50 uppercase tracking-wider">Approved hrs/mo</th>
-                <th className="text-left px-5 py-3 text-[10px] font-600 text-mist/50 uppercase tracking-wider">Key</th>
+                <th className="text-left px-5 py-3 text-[10px] font-600 text-mist/50 uppercase tracking-wider">Namn</th>
+                <th className="text-left px-5 py-3 text-[10px] font-600 text-mist/50 uppercase tracking-wider">Adress</th>
+                <th className="text-left px-5 py-3 text-[10px] font-600 text-mist/50 uppercase tracking-wider">Omsorgsnivå</th>
+                <th className="text-left px-5 py-3 text-[10px] font-600 text-mist/50 uppercase tracking-wider">Beviljade tim/mån</th>
+                <th className="text-left px-5 py-3 text-[10px] font-600 text-mist/50 uppercase tracking-wider">Nyckel</th>
                 <th className="text-left px-5 py-3 text-[10px] font-600 text-mist/50 uppercase tracking-wider">Status</th>
               </tr>
             </thead>
@@ -99,8 +105,8 @@ export default function Customers() {
                   <td className="px-5 py-3 text-sm text-mist/60">{cust.address}</td>
                   <td className="px-5 py-3">
                     {cust.care_level ? (
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-600 border capitalize ${careLevelBadge[cust.care_level] ?? ""}`}>
-                        {cust.care_level}
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-600 border ${careLevelBadge[cust.care_level] ?? ""}`}>
+                        {careLevelLabels[cust.care_level] ?? cust.care_level}
                       </span>
                     ) : (
                       <span className="text-xs text-sediment">—</span>
@@ -111,7 +117,7 @@ export default function Customers() {
                   <td className="px-5 py-3">
                     <span className={`inline-flex items-center gap-1.5 text-xs ${cust.is_active ? "text-kelp" : "text-sediment"}`}>
                       <span className={`w-1.5 h-1.5 rounded-full ${cust.is_active ? "bg-kelp" : "bg-sediment"}`} />
-                      {cust.is_active ? "Active" : "Inactive"}
+                      {cust.is_active ? "Aktiv" : "Inaktiv"}
                     </span>
                   </td>
                 </tr>
@@ -120,7 +126,7 @@ export default function Customers() {
                 <tr>
                   <td colSpan={6} className="text-center py-12">
                     <Heart className="w-10 h-10 text-sediment mx-auto mb-3" strokeWidth={1} />
-                    <p className="text-sm text-sediment">{search ? "No customers match your search" : "No customers found"}</p>
+                    <p className="text-sm text-sediment">{search ? "Inga kunder matchar din sökning" : "Inga kunder hittades"}</p>
                   </td>
                 </tr>
               )}

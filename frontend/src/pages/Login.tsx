@@ -43,7 +43,7 @@ export default function Login() {
             Timepiece
           </h1>
           <p className="mt-2 text-sm text-mist/60 tracking-wide">
-            Care scheduling system
+            Schemaläggning för hemtjänst
           </p>
         </div>
 
@@ -64,7 +64,7 @@ export default function Login() {
                 htmlFor="email"
                 className="block text-xs font-600 text-mist/80 uppercase tracking-wider mb-2"
               >
-                Email
+                E-post
               </label>
               <input
                 id="email"
@@ -85,7 +85,7 @@ export default function Login() {
                 htmlFor="password"
                 className="block text-xs font-600 text-mist/80 uppercase tracking-wider mb-2"
               >
-                Password
+                Lösenord
               </label>
               <div className="relative">
                 <input
@@ -96,7 +96,7 @@ export default function Login() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full h-11 px-4 pr-11 rounded-lg bg-deep border border-reef text-moon placeholder:text-sediment text-sm font-display focus:border-glow/50 focus:outline-none transition-colors"
-                  placeholder="Enter password"
+                  placeholder="Ange lösenord"
                 />
                 <button
                   type="button"
@@ -122,10 +122,10 @@ export default function Login() {
               {isLoggingIn ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Signing in...
+                  Loggar in...
                 </>
               ) : (
-                "Sign in"
+                "Logga in"
               )}
             </button>
           </form>
