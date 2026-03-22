@@ -169,5 +169,5 @@ make postgres     # docker compose database
 3. ✅ `measures/` — care task definitions with duration/frequency
 4. ✅ `schedules/` — schedule creation, employee/customer assignment, planned measures per customer
 5. ✅ `care_visits/` — visit creation, status transitions, double bemanning support
-6. `absences/` — absence registration, overlap detection
+6. ✅ `absences/` — absence registration, overlap detection
 7. `reports/` — worked hours, completed visits
