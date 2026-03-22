@@ -26,21 +26,21 @@ export function useAuth() {
     error,
   } = useQuery<User>({
     queryKey: ["auth", "me"],
-    queryFn: () => api.get<User>("/me"),
+    queryFn: () => api.get<User>("/auth/me"),
     retry: false,
     staleTime: 5 * 60 * 1000,
   });
 
   const loginMutation = useMutation({
     mutationFn: (credentials: LoginCredentials) =>
-      api.post<LoginResponse>("/login", credentials),
+      api.post<LoginResponse>("/auth/login", credentials),
     onSuccess: (data) => {
       queryClient.setQueryData(["auth", "me"], data.user);
     },
   });
 
   const logoutMutation = useMutation({
-    mutationFn: () => api.post<void>("/logout"),
+    mutationFn: () => api.post<void>("/auth/logout"),
     onSuccess: () => {
       queryClient.setQueryData(["auth", "me"], null);
       queryClient.clear();

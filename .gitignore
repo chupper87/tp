@@ -11,3 +11,4 @@ htmlcov/
 .claude/
 node_modules/
 frontend/dist/
+seed.py
