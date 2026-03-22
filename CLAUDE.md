@@ -144,7 +144,6 @@ Always use `DateTime(timezone=True)` with `server_default=func.now()`. Never sto
 - Synchronous DB calls in async handlers
 - Committing large diffs — commit per logical unit
 - Hardcoded mock data anywhere — frontend must connect to real API from day one
-- Audit trail missing — log who changed what (future: AuditTrail model)
 - Schedule conflict detection missing (double-booking, absence overlap) — build this in
 
 ---
@@ -171,3 +170,9 @@ make postgres     # docker compose database
 5. ✅ `care_visits/` — visit creation, status transitions, double bemanning support
 6. ✅ `absences/` — absence registration, overlap detection
 7. ✅ `reports/` — worked hours, completed visits
+
+## Post-MVP modules
+
+8. ✅ Public API — employee-facing read endpoints (`/my`) for schedules, care visits, absences
+9. ✅ `permissions/` — RBAC with action hierarchy (read < write < admin), wildcard + specific resource, admin bypass, `require_permission()` factory
+10. ✅ `audit/` — immutable audit trail for mutations, admin query endpoint with filters
