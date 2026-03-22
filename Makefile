@@ -1,4 +1,4 @@
-.PHONY: run install test coverage lint migrate downgrade postgres
+.PHONY: run install test coverage lint migrate downgrade postgres frontend
 
 run:
 	uv run uvicorn \
@@ -30,3 +30,6 @@ downgrade:
 
 postgres:
 	docker compose run --service-ports database
+
+frontend:
+	cd frontend && bun run dev

@@ -1,0 +1,145 @@
+@import "tailwindcss";
+
+/* ─── Deep Ocean Design System ─── */
+@theme {
+  /* Typography */
+  --font-display: "Syne", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+
+  /* Depths — darkest to lightest, like descending into the ocean */
+  --color-abyss: #050b15;
+  --color-deep: #0a1120;
+  --color-ocean: #0f1a2e;
+  --color-mid: #152238;
+  --color-shallow: #1c2d4a;
+  --color-surface: #243656;
+
+  /* Bioluminescence — accent colors */
+  --color-glow: #2dd4bf;
+  --color-glow-bright: #5eead4;
+  --color-glow-dim: #14b8a6;
+  --color-current: #22d3ee;
+  --color-current-dim: #06b6d4;
+
+  /* Sunlight filtering through water */
+  --color-sun: #fbbf24;
+  --color-sun-dim: #f59e0b;
+
+  /* Coral reef — danger/warning */
+  --color-coral: #f87171;
+  --color-coral-dim: #ef4444;
+  --color-kelp: #34d399;
+  --color-kelp-dim: #10b981;
+
+  /* Text — moonlit water */
+  --color-moon: #e0f2fe;
+  --color-foam: #bae6fd;
+  --color-mist: #7dd3fc;
+  --color-drift: #38bdf8;
+  --color-sediment: #475569;
+  --color-silt: #334155;
+
+  /* Borders */
+  --color-reef: #1e3a5f;
+  --color-reef-light: #2a4a6f;
+}
+
+/* ─── Base styles ─── */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-shallow) var(--color-deep);
+}
+
+body {
+  font-family: var(--font-display);
+  background-color: var(--color-abyss);
+  color: var(--color-moon);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ─── Selection ─── */
+::selection {
+  background-color: color-mix(in srgb, var(--color-glow) 30%, transparent);
+  color: var(--color-moon);
+}
+
+/* ─── Focus rings ─── */
+:focus-visible {
+  outline: 2px solid var(--color-glow);
+  outline-offset: 2px;
+}
+
+/* ─── Login background animation ─── */
+@keyframes ocean-drift {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  25% {
+    background-position: 50% 0%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  75% {
+    background-position: 50% 100%;
+  }
+}
+
+.ocean-bg {
+  background: linear-gradient(
+    135deg,
+    var(--color-abyss) 0%,
+    #071428 20%,
+    #0a1e35 40%,
+    #06192e 60%,
+    #041222 80%,
+    var(--color-abyss) 100%
+  );
+  background-size: 400% 400%;
+  animation: ocean-drift 20s ease-in-out infinite;
+}
+
+/* ─── Subtle glow effect for cards ─── */
+.card-glow {
+  box-shadow:
+    0 0 0 1px var(--color-reef),
+    0 4px 24px -4px rgba(5, 11, 21, 0.8);
+  transition: box-shadow 0.3s ease;
+}
+
+.card-glow:hover {
+  box-shadow:
+    0 0 0 1px var(--color-reef-light),
+    0 0 32px -8px rgba(45, 212, 191, 0.08),
+    0 8px 32px -4px rgba(5, 11, 21, 0.9);
+}
+
+/* ─── Data typography ─── */
+.font-data {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ─── Stagger animations ─── */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.5s ease-out both;
+}
+
+.stagger-1 { animation-delay: 0.05s; }
+.stagger-2 { animation-delay: 0.1s; }
+.stagger-3 { animation-delay: 0.15s; }
+.stagger-4 { animation-delay: 0.2s; }
+.stagger-5 { animation-delay: 0.25s; }
+.stagger-6 { animation-delay: 0.3s; }
