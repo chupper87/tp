@@ -167,7 +167,7 @@ make postgres     # docker compose database
 1. ✅ `employees/` — CRUD, role management
 2. ✅ `customers/` — CRUD, care level, approved hours
 3. ✅ `measures/` — care task definitions with duration/frequency
-4. `schedules/` — schedule creation, employee/customer assignment, planned measures per customer
-5. `care_visits/` — visit creation, status transitions, double bemanning support
+4. ✅ `schedules/` — schedule creation, employee/customer assignment, planned measures per customer
+5. ✅ `care_visits/` — visit creation, status transitions, double bemanning support
 6. `absences/` — absence registration, overlap detection
 7. `reports/` — worked hours, completed visits
