@@ -1,7 +1,16 @@
 import pytest
 from httpx import AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from models import Customer, Employee, Schedule
+from models import (
+    CareVisit,
+    Customer,
+    Employee,
+    EmployeeCareVisit,
+    Schedule,
+    ScheduleCustomer,
+    ScheduleEmployee,
+)
 
 
 # --- auth / permissions ---
@@ -212,3 +221,163 @@ async def test_customer_hours_requires_dates(admin_client: AsyncClient) -> None:
 async def test_visit_summary_requires_dates(admin_client: AsyncClient) -> None:
     response = await admin_client.get("/reports/visit-summary")
     assert response.status_code == 422
+
+
+# --- continuity ---
+
+
+@pytest.mark.asyncio
+async def test_continuity_requires_auth(client: AsyncClient) -> None:
+    response = await client.get(
+        "/reports/continuity?date_from=2026-04-01&date_to=2026-04-30"
+    )
+    assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_continuity_requires_admin(
+    authenticated_client: AsyncClient,
+) -> None:
+    response = await authenticated_client.get(
+        "/reports/continuity?date_from=2026-04-01&date_to=2026-04-30"
+    )
+    assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_continuity_empty(admin_client: AsyncClient) -> None:
+    response = await admin_client.get(
+        "/reports/continuity?date_from=2026-04-01&date_to=2026-04-30"
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["rows"] == []
+    assert data["average_score"] == 0.0
+
+
+@pytest.mark.asyncio
+async def test_continuity_requires_dates(admin_client: AsyncClient) -> None:
+    response = await admin_client.get("/reports/continuity")
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_continuity_with_data(
+    admin_client: AsyncClient,
+    populated_schedule: Schedule,
+    customer: Customer,
+    customer2: Customer,
+) -> None:
+    """
+    From populated_schedule:
+    - Birgitta: 2 completed visits by 2 unique employees → score 0.0
+    - Sven: 2 completed visits by 2 unique employees → score 0.0
+    """
+    response = await admin_client.get(
+        "/reports/continuity?date_from=2026-04-01&date_to=2026-04-30"
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data["rows"]) == 2
+    assert data["average_score"] == 0.0
+
+    by_customer = {r["customer_id"]: r for r in data["rows"]}
+    birgitta = by_customer[str(customer.id)]
+    assert birgitta["total_visits"] == 2
+    assert birgitta["unique_employees"] == 2
+    assert birgitta["continuity_score"] == 0.0
+
+    sven = by_customer[str(customer2.id)]
+    assert sven["total_visits"] == 2
+    assert sven["unique_employees"] == 2
+    assert sven["continuity_score"] == 0.0
+
+
+@pytest.mark.asyncio
+async def test_continuity_perfect_score(
+    admin_client: AsyncClient,
+    db: AsyncSession,
+    employee: Employee,
+    customer: Customer,
+    schedule: Schedule,
+) -> None:
+    """All visits by the same employee = perfect continuity (1.0)."""
+    db.add(ScheduleEmployee(schedule_id=schedule.id, employee_id=employee.id))
+    db.add(ScheduleCustomer(schedule_id=schedule.id, customer_id=customer.id))
+    await db.commit()
+
+    for _ in range(3):
+        v = CareVisit(
+            date=schedule.date,
+            schedule_id=schedule.id,
+            customer_id=customer.id,
+            duration=30,
+            status="completed",
+        )
+        db.add(v)
+        await db.flush()
+        db.add(
+            EmployeeCareVisit(
+                care_visit_id=v.id, employee_id=employee.id, is_primary=True
+            )
+        )
+    await db.commit()
+
+    response = await admin_client.get(
+        "/reports/continuity?date_from=2026-04-01&date_to=2026-04-30"
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data["rows"]) == 1
+    assert data["rows"][0]["total_visits"] == 3
+    assert data["rows"][0]["unique_employees"] == 1
+    assert data["rows"][0]["continuity_score"] == 1.0
+    assert data["average_score"] == 1.0
+
+
+@pytest.mark.asyncio
+async def test_continuity_single_visit(
+    admin_client: AsyncClient,
+    db: AsyncSession,
+    employee: Employee,
+    customer: Customer,
+    schedule: Schedule,
+) -> None:
+    """A single visit should yield continuity 1.0."""
+    db.add(ScheduleEmployee(schedule_id=schedule.id, employee_id=employee.id))
+    db.add(ScheduleCustomer(schedule_id=schedule.id, customer_id=customer.id))
+    await db.commit()
+
+    v = CareVisit(
+        date=schedule.date,
+        schedule_id=schedule.id,
+        customer_id=customer.id,
+        duration=30,
+        status="completed",
+    )
+    db.add(v)
+    await db.flush()
+    db.add(
+        EmployeeCareVisit(care_visit_id=v.id, employee_id=employee.id, is_primary=True)
+    )
+    await db.commit()
+
+    response = await admin_client.get(
+        "/reports/continuity?date_from=2026-04-01&date_to=2026-04-30"
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["rows"][0]["continuity_score"] == 1.0
+
+
+@pytest.mark.asyncio
+async def test_continuity_date_filter(
+    admin_client: AsyncClient,
+    populated_schedule: Schedule,
+) -> None:
+    """All visits are on 2026-04-01. Querying May returns empty."""
+    response = await admin_client.get(
+        "/reports/continuity?date_from=2026-05-01&date_to=2026-05-31"
+    )
+    assert response.status_code == 200
+    assert response.json()["rows"] == []

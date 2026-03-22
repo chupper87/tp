@@ -46,3 +46,21 @@ class VisitSummaryReport(BaseModel):
     date_to: date_type
     total: int
     by_status: list[VisitStatusCount]
+
+
+class ContinuityRow(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    customer_id: uuid.UUID
+    first_name: str
+    last_name: str
+    total_visits: int
+    unique_employees: int
+    continuity_score: float
+
+
+class ContinuityReport(BaseModel):
+    date_from: date_type
+    date_to: date_type
+    average_score: float
+    rows: list[ContinuityRow]

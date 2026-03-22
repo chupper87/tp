@@ -7,6 +7,7 @@ from dependencies import get_authenticated_admin_user, get_db
 from models import User
 from reports import repo
 from reports.schemas import (
+    ContinuityReport,
     CustomerHoursReport,
     EmployeeHoursReport,
     VisitSummaryReport,
@@ -43,3 +44,13 @@ async def get_visit_summary(
     _admin: User = Depends(get_authenticated_admin_user),
 ) -> VisitSummaryReport:
     return await repo.visit_summary(db, date_from, date_to)
+
+
+@router.get("/continuity", response_model=ContinuityReport)
+async def get_continuity(
+    date_from: date_type,
+    date_to: date_type,
+    db: AsyncSession = Depends(get_db),
+    _admin: User = Depends(get_authenticated_admin_user),
+) -> ContinuityReport:
+    return await repo.customer_continuity(db, date_from, date_to)
