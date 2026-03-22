@@ -10,6 +10,7 @@ from reports.schemas import (
     ContinuityReport,
     CustomerHoursReport,
     EmployeeHoursReport,
+    FlexHoursReport,
     VisitSummaryReport,
 )
 
@@ -54,3 +55,13 @@ async def get_continuity(
     _admin: User = Depends(get_authenticated_admin_user),
 ) -> ContinuityReport:
     return await repo.customer_continuity(db, date_from, date_to)
+
+
+@router.get("/flex-hours", response_model=FlexHoursReport)
+async def get_flex_hours(
+    date_from: date_type,
+    date_to: date_type,
+    db: AsyncSession = Depends(get_db),
+    _admin: User = Depends(get_authenticated_admin_user),
+) -> FlexHoursReport:
+    return await repo.flex_hours(db, date_from, date_to)

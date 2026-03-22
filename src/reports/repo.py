@@ -12,6 +12,8 @@ from reports.schemas import (
     CustomerHoursRow,
     EmployeeHoursReport,
     EmployeeHoursRow,
+    FlexHoursReport,
+    FlexHoursRow,
     VisitStatusCount,
     VisitSummaryReport,
 )
@@ -201,3 +203,69 @@ async def customer_continuity(
         average_score=average_score,
         rows=rows,
     )
+
+
+async def flex_hours(
+    db: AsyncSession,
+    date_from: date_type,
+    date_to: date_type,
+) -> FlexHoursReport:
+    """Worked vs contracted hours per employee for a date range.
+
+    Shows all active employees, including those with 0 worked hours,
+    so admins can see who wasn't scheduled. Contracted hours are
+    proportional to the period length based on weekly_hours.
+    """
+    days_in_period = (date_to - date_from).days + 1
+
+    # Subquery: worked minutes per employee in the period
+    worked_sq = (
+        select(
+            EmployeeCareVisit.employee_id.label("emp_id"),
+            func.coalesce(func.sum(CareVisit.duration), 0).label("worked"),
+        )
+        .join(CareVisit, EmployeeCareVisit.care_visit_id == CareVisit.id)
+        .where(
+            CareVisit.status == "completed",
+            CareVisit.date >= date_from,
+            CareVisit.date <= date_to,
+        )
+        .group_by(EmployeeCareVisit.employee_id)
+        .subquery()
+    )
+
+    q = (
+        select(
+            Employee.id,
+            Employee.first_name,
+            Employee.last_name,
+            Employee.weekly_hours,
+            func.coalesce(worked_sq.c.worked, 0).label("worked_minutes"),
+        )
+        .outerjoin(worked_sq, Employee.id == worked_sq.c.emp_id)
+        .where(Employee.is_active.is_(True))
+        .order_by(Employee.last_name, Employee.first_name)
+    )
+
+    result = await db.execute(q)
+    rows = []
+    for r in result.all():
+        worked_minutes = r.worked_minutes
+        if r.weekly_hours is not None:
+            contracted = round(r.weekly_hours * 60 * days_in_period / 7)
+            flex = worked_minutes - contracted
+        else:
+            contracted = None
+            flex = None
+        rows.append(
+            FlexHoursRow(
+                employee_id=r.id,
+                first_name=r.first_name,
+                last_name=r.last_name,
+                worked_minutes=worked_minutes,
+                contracted_minutes=contracted,
+                flex_minutes=flex,
+            )
+        )
+
+    return FlexHoursReport(date_from=date_from, date_to=date_to, rows=rows)

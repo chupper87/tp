@@ -64,3 +64,20 @@ class ContinuityReport(BaseModel):
     date_to: date_type
     average_score: float
     rows: list[ContinuityRow]
+
+
+class FlexHoursRow(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    employee_id: uuid.UUID
+    first_name: str
+    last_name: str
+    worked_minutes: int
+    contracted_minutes: int | None
+    flex_minutes: int | None
+
+
+class FlexHoursReport(BaseModel):
+    date_from: date_type
+    date_to: date_type
+    rows: list[FlexHoursRow]

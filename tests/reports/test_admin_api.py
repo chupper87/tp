@@ -381,3 +381,147 @@ async def test_continuity_date_filter(
     )
     assert response.status_code == 200
     assert response.json()["rows"] == []
+
+
+# --- flex hours ---
+
+
+@pytest.mark.asyncio
+async def test_flex_hours_requires_auth(client: AsyncClient) -> None:
+    response = await client.get(
+        "/reports/flex-hours?date_from=2026-04-01&date_to=2026-04-30"
+    )
+    assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_flex_hours_requires_admin(
+    authenticated_client: AsyncClient,
+) -> None:
+    response = await authenticated_client.get(
+        "/reports/flex-hours?date_from=2026-04-01&date_to=2026-04-30"
+    )
+    assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_flex_hours_empty(admin_client: AsyncClient) -> None:
+    response = await admin_client.get(
+        "/reports/flex-hours?date_from=2026-04-01&date_to=2026-04-30"
+    )
+    assert response.status_code == 200
+    assert response.json()["rows"] == []
+
+
+@pytest.mark.asyncio
+async def test_flex_hours_requires_dates(admin_client: AsyncClient) -> None:
+    response = await admin_client.get("/reports/flex-hours")
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_flex_hours_with_data(
+    admin_client: AsyncClient,
+    populated_schedule: Schedule,
+    employee: Employee,
+    employee2: Employee,
+) -> None:
+    """
+    Completed visits (from populated_schedule):
+    - Pelle: 30 + 45 + 60 = 135 min worked
+    - Anna: 20 + 60 = 80 min worked
+    Period: 2026-04-01 to 2026-04-30 = 30 days
+    """
+    response = await admin_client.get(
+        "/reports/flex-hours?date_from=2026-04-01&date_to=2026-04-30"
+    )
+    assert response.status_code == 200
+    data = response.json()
+
+    by_emp = {r["employee_id"]: r for r in data["rows"]}
+    assert by_emp[str(employee.id)]["worked_minutes"] == 135
+    assert by_emp[str(employee2.id)]["worked_minutes"] == 80
+
+
+@pytest.mark.asyncio
+async def test_flex_hours_with_weekly_hours(
+    admin_client: AsyncClient,
+    db: AsyncSession,
+    employee: Employee,
+    schedule: Schedule,
+) -> None:
+    """Employee with weekly_hours set should show contracted and flex."""
+    employee.weekly_hours = 40.0
+    db.add(employee)
+    await db.commit()
+
+    db.add(ScheduleEmployee(schedule_id=schedule.id, employee_id=employee.id))
+    await db.commit()
+
+    v = CareVisit(
+        date=schedule.date,
+        schedule_id=schedule.id,
+        customer_id=None,  # will set below
+        duration=480,
+        status="completed",
+    )
+    # Need a customer on the schedule for a valid visit
+    from models import Customer
+
+    cust = Customer(first_name="Test", last_name="Kund", key_number=9999, address="X")
+    db.add(cust)
+    await db.commit()
+    await db.refresh(cust)
+    db.add(ScheduleCustomer(schedule_id=schedule.id, customer_id=cust.id))
+    await db.commit()
+
+    v = CareVisit(
+        date=schedule.date,
+        schedule_id=schedule.id,
+        customer_id=cust.id,
+        duration=480,
+        status="completed",
+    )
+    db.add(v)
+    await db.flush()
+    db.add(
+        EmployeeCareVisit(care_visit_id=v.id, employee_id=employee.id, is_primary=True)
+    )
+    await db.commit()
+
+    # Query for exactly 1 week so contracted = 40 * 60 = 2400 min
+    response = await admin_client.get(
+        "/reports/flex-hours?date_from=2026-03-30&date_to=2026-04-05"
+    )
+    assert response.status_code == 200
+    data = response.json()
+
+    by_emp = {r["employee_id"]: r for r in data["rows"]}
+    row = by_emp[str(employee.id)]
+    assert row["worked_minutes"] == 480
+    assert row["contracted_minutes"] == 2400  # 40h * 60min * 7days/7
+    assert row["flex_minutes"] == 480 - 2400  # -1920
+
+
+@pytest.mark.asyncio
+async def test_flex_hours_null_weekly_hours(
+    admin_client: AsyncClient,
+    db: AsyncSession,
+    employee: Employee,
+) -> None:
+    """Employee without weekly_hours has null contracted and flex."""
+    employee.weekly_hours = None
+    db.add(employee)
+    await db.commit()
+
+    response = await admin_client.get(
+        "/reports/flex-hours?date_from=2026-04-01&date_to=2026-04-30"
+    )
+    assert response.status_code == 200
+    data = response.json()
+
+    by_emp = {r["employee_id"]: r for r in data["rows"]}
+    row = by_emp[str(employee.id)]
+    assert row["worked_minutes"] == 0
+    assert row["contracted_minutes"] is None
+    assert row["flex_minutes"] is None
