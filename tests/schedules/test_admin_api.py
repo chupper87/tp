@@ -4,7 +4,7 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from models import Customer, Employee, Measure, Schedule
+from models import Absence, Customer, Employee, Measure, Schedule
 
 
 def _schedule_payload(**overrides) -> dict:
@@ -207,6 +207,107 @@ async def test_assign_employee_twice_returns_409(
         f"/schedules/{schedule.id}/employees", json=payload
     )
     assert response.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_assign_employee_with_absence_returns_409(
+    admin_client: AsyncClient,
+    schedule: Schedule,
+    employee: Employee,
+    db: AsyncSession,
+) -> None:
+    """Assigning an employee who has an absence covering the schedule date should 409."""
+    db.add(
+        Absence(
+            employee_id=employee.id,
+            absence_type="sick",
+            start_date=date(2026, 3, 30),
+            end_date=date(2026, 4, 5),
+        )
+    )
+    await db.commit()
+
+    response = await admin_client.post(
+        f"/schedules/{schedule.id}/employees",
+        json={"employee_id": str(employee.id)},
+    )
+    assert response.status_code == 409
+    assert "absence" in response.json()["detail"].lower()
+
+
+@pytest.mark.asyncio
+async def test_assign_employee_with_non_overlapping_absence_succeeds(
+    admin_client: AsyncClient,
+    schedule: Schedule,
+    employee: Employee,
+    db: AsyncSession,
+) -> None:
+    """An absence that does NOT cover the schedule date should not block assignment."""
+    db.add(
+        Absence(
+            employee_id=employee.id,
+            absence_type="vacation",
+            start_date=date(2026, 5, 1),
+            end_date=date(2026, 5, 10),
+        )
+    )
+    await db.commit()
+
+    response = await admin_client.post(
+        f"/schedules/{schedule.id}/employees",
+        json={"employee_id": str(employee.id)},
+    )
+    assert response.status_code == 201
+
+
+@pytest.mark.asyncio
+async def test_assign_employee_absence_starts_on_schedule_date_returns_409(
+    admin_client: AsyncClient,
+    schedule: Schedule,
+    employee: Employee,
+    db: AsyncSession,
+) -> None:
+    """Absence starting exactly on the schedule date should block."""
+    db.add(
+        Absence(
+            employee_id=employee.id,
+            absence_type="sick",
+            start_date=date(2026, 4, 1),
+            end_date=date(2026, 4, 1),
+        )
+    )
+    await db.commit()
+
+    response = await admin_client.post(
+        f"/schedules/{schedule.id}/employees",
+        json={"employee_id": str(employee.id)},
+    )
+    assert response.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_assign_employee_absence_ends_before_schedule_date_succeeds(
+    admin_client: AsyncClient,
+    schedule: Schedule,
+    employee: Employee,
+    db: AsyncSession,
+) -> None:
+    """Absence ending the day before the schedule date should NOT block."""
+    db.add(
+        Absence(
+            employee_id=employee.id,
+            absence_type="sick",
+            start_date=date(2026, 3, 25),
+            end_date=date(2026, 3, 31),
+        )
+    )
+    await db.commit()
+
+    response = await admin_client.post(
+        f"/schedules/{schedule.id}/employees",
+        json={"employee_id": str(employee.id)},
+    )
+    assert response.status_code == 201
 
 
 @pytest.mark.asyncio

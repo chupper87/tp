@@ -10,6 +10,7 @@ from employees.errors import EmployeeNotFound
 from log_setup import get_logger
 from measures.errors import MeasureNotFound
 from models import (
+    Absence,
     Customer,
     Employee,
     Measure,
@@ -22,6 +23,7 @@ from schedules.errors import (
     CustomerAlreadyOnSchedule,
     CustomerNotOnSchedule,
     CustomerNotOnScheduleForMeasure,
+    EmployeeAbsenceConflict,
     EmployeeAlreadyOnSchedule,
     EmployeeNotOnSchedule,
     MeasureAlreadyOnSchedule,
@@ -165,6 +167,18 @@ async def assign_employee(
     )
     if existing.scalar_one_or_none() is not None:
         raise EmployeeAlreadyOnSchedule(employee_id, schedule.id)
+
+    # Check for absences covering the schedule date
+    absence_result = await db.execute(
+        select(Absence).where(
+            Absence.employee_id == employee_id,
+            Absence.start_date <= schedule.date,
+            Absence.end_date >= schedule.date,
+        )
+    )
+    conflicting_absence = absence_result.scalar_one_or_none()
+    if conflicting_absence is not None:
+        raise EmployeeAbsenceConflict(employee_id, schedule.id, conflicting_absence.id)
 
     db.add(ScheduleEmployee(schedule_id=schedule.id, employee_id=employee_id))
     await db.commit()

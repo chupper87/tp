@@ -23,6 +23,7 @@ from schedules.errors import (
     CustomerAlreadyOnScheduleError,
     CustomerNotOnScheduleError,
     CustomerNotOnScheduleForMeasureError,
+    EmployeeAbsenceConflictError,
     EmployeeAlreadyOnScheduleError,
     EmployeeNotOnScheduleError,
     MeasureAlreadyOnScheduleError,
@@ -128,7 +129,10 @@ async def update_schedule(
     response_model=ScheduleEmployeeOut,
     status_code=status.HTTP_201_CREATED,
     responses=responses_from_api_errors(
-        ScheduleNotFoundError, EmployeeNotFoundError, EmployeeAlreadyOnScheduleError
+        ScheduleNotFoundError,
+        EmployeeNotFoundError,
+        EmployeeAlreadyOnScheduleError,
+        EmployeeAbsenceConflictError,
     ),
 )
 async def assign_employee(

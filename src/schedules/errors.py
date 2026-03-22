@@ -73,6 +73,24 @@ class CustomerNotOnScheduleForMeasure(Exception):
         )
 
 
+class EmployeeAbsenceConflict(Exception):
+    """Raised when employee has an absence covering the schedule date."""
+
+    def __init__(
+        self,
+        employee_id: uuid.UUID,
+        schedule_id: uuid.UUID,
+        absence_id: uuid.UUID,
+    ) -> None:
+        self.employee_id = employee_id
+        self.schedule_id = schedule_id
+        self.absence_id = absence_id
+        super().__init__(
+            f"Employee {employee_id} has an absence ({absence_id}) "
+            f"covering the schedule date"
+        )
+
+
 # --- API error mappings ---
 
 
@@ -174,5 +192,21 @@ class CustomerNotOnScheduleForMeasureError(ApiError):
             detail=(
                 f"Customer {e.customer_id} must be assigned to the schedule "
                 "before adding measures"
+            )
+        )
+
+
+@api_exception_handler(EmployeeAbsenceConflict, status.HTTP_409_CONFLICT)
+class EmployeeAbsenceConflictError(ApiError):
+    detail: str
+
+    @classmethod
+    def from_original_error(
+        cls, e: EmployeeAbsenceConflict
+    ) -> "EmployeeAbsenceConflictError":
+        return cls(
+            detail=(
+                f"Employee {e.employee_id} has an absence covering this "
+                f"schedule date (absence {e.absence_id})"
             )
         )
