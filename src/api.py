@@ -13,6 +13,7 @@ import customers
 import employees
 import idp
 import measures
+import schedules
 from api_core import GenericAPIResponse, __api_exception_handlers
 from config import config
 from log_setup import get_logger
@@ -24,6 +25,7 @@ routers = [
     employees.router,
     customers.router,
     measures.router,
+    schedules.router,
 ]
 
 
