@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api_core import responses_from_api_errors
+from audit.repo import audit_log
 from dependencies import get_authenticated_admin_user, get_db
 from employees import repo
 from employees.errors import EmailAlreadyInUseError, EmployeeNotFoundError
@@ -32,9 +33,17 @@ async def list_employees(
 async def create_employee(
     data: EmployeeCreate,
     db: AsyncSession = Depends(get_db),
-    _admin: User = Depends(get_authenticated_admin_user),
+    admin: User = Depends(get_authenticated_admin_user),
 ) -> Employee:
-    return await repo.create_employee(db, data)
+    employee = await repo.create_employee(db, data)
+    await audit_log(
+        db,
+        user_id=admin.id,
+        action="created",
+        resource_type="employee",
+        resource_id=employee.id,
+    )
+    return employee
 
 
 @router.get(
@@ -59,7 +68,17 @@ async def update_employee(
     employee_id: uuid.UUID,
     data: EmployeeUpdate,
     db: AsyncSession = Depends(get_db),
-    _admin: User = Depends(get_authenticated_admin_user),
+    admin: User = Depends(get_authenticated_admin_user),
 ) -> Employee:
     employee = await repo.get_employee_or_404(db, employee_id)
-    return await repo.update_employee(db, employee, data)
+    changes = data.model_dump(exclude_unset=True)
+    result = await repo.update_employee(db, employee, data)
+    await audit_log(
+        db,
+        user_id=admin.id,
+        action="updated",
+        resource_type="employee",
+        resource_id=employee_id,
+        changes=changes,
+    )
+    return result

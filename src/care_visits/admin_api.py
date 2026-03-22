@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api_core import responses_from_api_errors
+from audit.repo import audit_log
 from care_visits import repo
 from care_visits.errors import (
     CareVisitMustHaveEmployeeError,
@@ -64,9 +65,17 @@ async def list_care_visits(
 async def create_care_visit(
     data: CareVisitCreate,
     db: AsyncSession = Depends(get_db),
-    _admin: User = Depends(get_authenticated_admin_user),
+    admin: User = Depends(get_authenticated_admin_user),
 ) -> CareVisit:
-    return await repo.create_care_visit(db, data)
+    visit = await repo.create_care_visit(db, data)
+    await audit_log(
+        db,
+        user_id=admin.id,
+        action="created",
+        resource_type="care_visit",
+        resource_id=visit.id,
+    )
+    return visit
 
 
 @router.get(
@@ -108,10 +117,20 @@ async def update_care_visit_status(
     care_visit_id: uuid.UUID,
     data: CareVisitStatusUpdate,
     db: AsyncSession = Depends(get_db),
-    _admin: User = Depends(get_authenticated_admin_user),
+    admin: User = Depends(get_authenticated_admin_user),
 ) -> CareVisit:
     care_visit = await repo.get_care_visit_or_404(db, care_visit_id)
-    return await repo.update_status(db, care_visit, data)
+    old_status = care_visit.status
+    result = await repo.update_status(db, care_visit, data)
+    await audit_log(
+        db,
+        user_id=admin.id,
+        action="status_changed",
+        resource_type="care_visit",
+        resource_id=care_visit_id,
+        changes={"status": {"old": old_status, "new": data.status}},
+    )
+    return result
 
 
 @router.delete(
@@ -147,10 +166,19 @@ async def add_employee_to_visit(
     care_visit_id: uuid.UUID,
     data: AddEmployeeToVisit,
     db: AsyncSession = Depends(get_db),
-    _admin: User = Depends(get_authenticated_admin_user),
+    admin: User = Depends(get_authenticated_admin_user),
 ) -> CareVisit:
     care_visit = await repo.get_care_visit_or_404(db, care_visit_id)
-    return await repo.add_employee(db, care_visit, data)
+    result = await repo.add_employee(db, care_visit, data)
+    await audit_log(
+        db,
+        user_id=admin.id,
+        action="employee_added",
+        resource_type="care_visit",
+        resource_id=care_visit_id,
+        changes={"employee_id": str(data.employee_id)},
+    )
+    return result
 
 
 @router.delete(

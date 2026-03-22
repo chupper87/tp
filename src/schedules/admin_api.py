@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api_core import responses_from_api_errors
+from audit.repo import audit_log
 from customers.errors import CustomerNotFoundError
 from dependencies import get_authenticated_admin_user, get_db
 from employees.errors import EmployeeNotFoundError
@@ -68,9 +69,17 @@ async def list_schedules(
 async def create_schedule(
     data: ScheduleCreate,
     db: AsyncSession = Depends(get_db),
-    _admin: User = Depends(get_authenticated_admin_user),
+    admin: User = Depends(get_authenticated_admin_user),
 ) -> Schedule:
-    return await repo.create_schedule(db, data)
+    schedule = await repo.create_schedule(db, data)
+    await audit_log(
+        db,
+        user_id=admin.id,
+        action="created",
+        resource_type="schedule",
+        resource_id=schedule.id,
+    )
+    return schedule
 
 
 @router.get(
@@ -95,10 +104,20 @@ async def update_schedule(
     schedule_id: uuid.UUID,
     data: ScheduleUpdate,
     db: AsyncSession = Depends(get_db),
-    _admin: User = Depends(get_authenticated_admin_user),
+    admin: User = Depends(get_authenticated_admin_user),
 ) -> Schedule:
     schedule = await repo.get_schedule_or_404(db, schedule_id)
-    return await repo.update_schedule(db, schedule, data)
+    changes = data.model_dump(exclude_unset=True)
+    result = await repo.update_schedule(db, schedule, data)
+    await audit_log(
+        db,
+        user_id=admin.id,
+        action="updated",
+        resource_type="schedule",
+        resource_id=schedule_id,
+        changes=changes,
+    )
+    return result
 
 
 # --- Employees ---

@@ -13,6 +13,7 @@ from absences.errors import (
 )
 from absences.schemas import AbsenceCreate, AbsenceDetailOut, AbsenceOut, AbsenceUpdate
 from api_core import responses_from_api_errors
+from audit.repo import audit_log
 from dependencies import get_authenticated_admin_user, get_db
 from employees.errors import EmployeeNotFoundError
 from models import Absence, User
@@ -49,9 +50,17 @@ async def list_absences(
 async def create_absence(
     data: AbsenceCreate,
     db: AsyncSession = Depends(get_db),
-    _admin: User = Depends(get_authenticated_admin_user),
+    admin: User = Depends(get_authenticated_admin_user),
 ) -> Absence:
-    return await repo.create_absence(db, data)
+    absence = await repo.create_absence(db, data)
+    await audit_log(
+        db,
+        user_id=admin.id,
+        action="created",
+        resource_type="absence",
+        resource_id=absence.id,
+    )
+    return absence
 
 
 @router.get(
@@ -78,10 +87,20 @@ async def update_absence(
     absence_id: uuid.UUID,
     data: AbsenceUpdate,
     db: AsyncSession = Depends(get_db),
-    _admin: User = Depends(get_authenticated_admin_user),
+    admin: User = Depends(get_authenticated_admin_user),
 ) -> Absence:
     absence = await repo.get_absence_or_404(db, absence_id)
-    return await repo.update_absence(db, absence, data)
+    changes = data.model_dump(exclude_unset=True)
+    result = await repo.update_absence(db, absence, data)
+    await audit_log(
+        db,
+        user_id=admin.id,
+        action="updated",
+        resource_type="absence",
+        resource_id=absence_id,
+        changes=changes,
+    )
+    return result
 
 
 @router.delete(
@@ -92,8 +111,15 @@ async def update_absence(
 async def delete_absence(
     absence_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    _admin: User = Depends(get_authenticated_admin_user),
+    admin: User = Depends(get_authenticated_admin_user),
 ) -> Response:
     absence = await repo.get_absence_or_404(db, absence_id)
     await repo.delete_absence(db, absence)
+    await audit_log(
+        db,
+        user_id=admin.id,
+        action="deleted",
+        resource_type="absence",
+        resource_id=absence_id,
+    )
     return Response(status_code=status.HTTP_204_NO_CONTENT)

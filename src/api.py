@@ -10,6 +10,7 @@ from starlette_context.plugins.correlation_id import CorrelationIdPlugin
 from structlog.contextvars import bind_contextvars, clear_contextvars
 
 import absences
+import audit
 import care_visits
 import customers
 import employees
@@ -33,6 +34,7 @@ routers = [
     care_visits.router,
     absences.router,
     permissions.router,
+    audit.router,
     reports.router,
 ]
 

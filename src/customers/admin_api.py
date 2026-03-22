@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api_core import responses_from_api_errors
+from audit.repo import audit_log
 from customers import repo
 from customers.errors import CustomerNotFoundError, KeyNumberAlreadyInUseError
 from customers.schemas import CustomerCreate, CustomerOut, CustomerUpdate
@@ -32,9 +33,17 @@ async def list_customers(
 async def create_customer(
     data: CustomerCreate,
     db: AsyncSession = Depends(get_db),
-    _admin: User = Depends(get_authenticated_admin_user),
+    admin: User = Depends(get_authenticated_admin_user),
 ) -> Customer:
-    return await repo.create_customer(db, data)
+    customer = await repo.create_customer(db, data)
+    await audit_log(
+        db,
+        user_id=admin.id,
+        action="created",
+        resource_type="customer",
+        resource_id=customer.id,
+    )
+    return customer
 
 
 @router.get(
@@ -61,7 +70,17 @@ async def update_customer(
     customer_id: uuid.UUID,
     data: CustomerUpdate,
     db: AsyncSession = Depends(get_db),
-    _admin: User = Depends(get_authenticated_admin_user),
+    admin: User = Depends(get_authenticated_admin_user),
 ) -> Customer:
     customer = await repo.get_customer_or_404(db, customer_id)
-    return await repo.update_customer(db, customer, data)
+    changes = data.model_dump(exclude_unset=True)
+    result = await repo.update_customer(db, customer, data)
+    await audit_log(
+        db,
+        user_id=admin.id,
+        action="updated",
+        resource_type="customer",
+        resource_id=customer_id,
+        changes=changes,
+    )
+    return result
