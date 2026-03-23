@@ -18,7 +18,7 @@ from models import (
     ScheduleMeasure,
     User,
 )
-from schedules import repo
+from schedules import planning, repo
 from schedules.errors import (
     CustomerAlreadyOnScheduleError,
     CustomerNotOnScheduleError,
@@ -30,6 +30,11 @@ from schedules.errors import (
     ScheduleConflictError,
     ScheduleMeasureNotFoundError,
     ScheduleNotFoundError,
+)
+from schedules.planning_schemas import (
+    ContinuityPreviewOut,
+    ScheduleFulfillmentOut,
+    ScheduleUtilizationOut,
 )
 from schedules.schemas import (
     AssignCustomerRequest,
@@ -262,3 +267,48 @@ async def remove_measure(
     sm = await repo.get_schedule_measure_or_404(db, schedule_measure_id)
     await repo.remove_measure(db, sm)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# --- Planning intelligence ---
+
+
+@router.get(
+    "/{schedule_id}/fulfillment",
+    response_model=ScheduleFulfillmentOut,
+    responses=responses_from_api_errors(ScheduleNotFoundError),
+)
+async def get_fulfillment(
+    schedule_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    _admin: User = Depends(get_authenticated_admin_user),
+) -> dict:
+    schedule = await repo.get_schedule_or_404(db, schedule_id)
+    return await planning.compute_fulfillment(db, schedule)
+
+
+@router.get(
+    "/{schedule_id}/utilization",
+    response_model=ScheduleUtilizationOut,
+    responses=responses_from_api_errors(ScheduleNotFoundError),
+)
+async def get_utilization(
+    schedule_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    _admin: User = Depends(get_authenticated_admin_user),
+) -> dict:
+    schedule = await repo.get_schedule_or_404(db, schedule_id)
+    return await planning.compute_utilization(db, schedule)
+
+
+@router.get(
+    "/{schedule_id}/continuity-preview",
+    response_model=ContinuityPreviewOut,
+    responses=responses_from_api_errors(ScheduleNotFoundError),
+)
+async def get_continuity_preview(
+    schedule_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    _admin: User = Depends(get_authenticated_admin_user),
+) -> dict:
+    schedule = await repo.get_schedule_or_404(db, schedule_id)
+    return await planning.compute_continuity_preview(db, schedule)
