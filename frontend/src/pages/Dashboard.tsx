@@ -273,7 +273,7 @@ export default function Dashboard() {
     <div className="p-8 max-w-[1400px]">
       {/* Header */}
       <div className="mb-8 animate-fade-up">
-        <h1 className="font-display text-2xl font-800 text-moon">Översikt</h1>
+        <h1 className="font-display text-2xl font-800 text-moon">Hem</h1>
         <p className="text-sm text-mist/50 mt-1">
           {new Date().toLocaleDateString("sv-SE", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
         </p>

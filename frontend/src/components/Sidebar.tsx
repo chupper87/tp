@@ -24,7 +24,7 @@ interface NavItem {
 }
 
 const adminNav: NavItem[] = [
-  { to: "/", icon: LayoutDashboard, label: "Översikt" },
+  { to: "/", icon: LayoutDashboard, label: "Hem" },
   { to: "/employees", icon: Users, label: "Anställda" },
   { to: "/customers", icon: Heart, label: "Kunder" },
   { to: "/measures", icon: ListChecks, label: "Insatser" },
@@ -36,7 +36,7 @@ const adminNav: NavItem[] = [
 ];
 
 const employeeNav: NavItem[] = [
-  { to: "/", icon: LayoutDashboard, label: "Översikt" },
+  { to: "/", icon: LayoutDashboard, label: "Hem" },
   { to: "/my/schedule", icon: CalendarDays, label: "Mitt schema" },
   { to: "/my/visits", icon: ClipboardCheck, label: "Mina besök" },
   { to: "/my/absences", icon: CalendarOff, label: "Min frånvaro" },
