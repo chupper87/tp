@@ -35,3 +35,42 @@ class KeyNumberAlreadyInUseError(ApiError):
         cls, e: KeyNumberAlreadyInUse
     ) -> "KeyNumberAlreadyInUseError":
         return cls(detail=f"Key number {e.key_number} is already in use")
+
+
+class CustomerMeasureNotFound(Exception):
+    def __init__(self, customer_measure_id: uuid.UUID) -> None:
+        self.customer_measure_id = customer_measure_id
+        super().__init__(f"Customer measure {customer_measure_id} not found")
+
+
+class CustomerMeasureDuplicate(Exception):
+    def __init__(self, customer_id: uuid.UUID, measure_id: uuid.UUID) -> None:
+        self.customer_id = customer_id
+        self.measure_id = measure_id
+        super().__init__(
+            f"Measure {measure_id} already assigned to customer {customer_id}"
+        )
+
+
+@api_exception_handler(CustomerMeasureNotFound, status.HTTP_404_NOT_FOUND)
+class CustomerMeasureNotFoundError(ApiError):
+    detail: str
+
+    @classmethod
+    def from_original_error(
+        cls, e: CustomerMeasureNotFound
+    ) -> "CustomerMeasureNotFoundError":
+        return cls(detail=f"Customer measure {e.customer_measure_id} not found")
+
+
+@api_exception_handler(CustomerMeasureDuplicate, status.HTTP_409_CONFLICT)
+class CustomerMeasureDuplicateError(ApiError):
+    detail: str
+
+    @classmethod
+    def from_original_error(
+        cls, e: CustomerMeasureDuplicate
+    ) -> "CustomerMeasureDuplicateError":
+        return cls(
+            detail=f"Measure {e.measure_id} already assigned to customer {e.customer_id}"
+        )
