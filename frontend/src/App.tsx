@@ -6,6 +6,7 @@ import Dashboard from "./pages/Dashboard";
 import Employees from "./pages/Employees";
 import Customers from "./pages/Customers";
 import Placeholder from "./pages/Placeholder";
+import ScheduleList from "./pages/schedules/ScheduleList";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -33,7 +34,7 @@ export default function App() {
             <Route path="employees" element={<Employees />} />
             <Route path="customers" element={<Customers />} />
             <Route path="measures" element={<Placeholder />} />
-            <Route path="schedules" element={<Placeholder />} />
+            <Route path="schedules" element={<ScheduleList />} />
             <Route path="schedules/:id" element={<Placeholder />} />
             <Route path="visits" element={<Placeholder />} />
             <Route path="absences" element={<Placeholder />} />
