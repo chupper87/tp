@@ -15,6 +15,7 @@ import type { ApiError } from "../../api/client";
 import {
   useCustomerMeasures,
   useAddCustomerMeasure,
+  useUpdateCustomerMeasure,
   useRemoveCustomerMeasure,
 } from "./hooks";
 import type { CustomerMeasureOut } from "./types";
@@ -263,10 +264,21 @@ function CarePlanRow({
   customerId: string;
   measure: CustomerMeasureOut;
 }) {
+  const update = useUpdateCustomerMeasure(customerId);
   const remove = useRemoveCustomerMeasure(customerId);
 
   const duration = measure.customer_duration ?? measure.measure_default_duration;
   const days = measure.days_of_week ?? [];
+
+  function toggleDay(day: string) {
+    const newDays = days.includes(day)
+      ? days.filter((d) => d !== day)
+      : [...days, day];
+    update.mutate({
+      id: measure.id,
+      days_of_week: newDays.length > 0 ? newDays : [],
+    });
+  }
 
   return (
     <div className="grid grid-cols-[1fr_100px_100px_100px_140px_40px] gap-2 items-center px-4 py-2 border-b border-reef/20 hover:bg-mid/10 transition-colors group">
@@ -285,16 +297,18 @@ function CarePlanRow({
       </span>
       <div className="flex gap-0.5">
         {DAY_LABELS.map(([key, label]) => (
-          <span
+          <button
             key={key}
-            className={`w-5 h-5 rounded text-[9px] flex items-center justify-center font-600 ${
+            onClick={() => toggleDay(key)}
+            disabled={update.isPending}
+            className={`w-5 h-5 rounded text-[9px] flex items-center justify-center font-600 cursor-pointer transition-all ${
               days.includes(key)
-                ? "bg-glow/20 text-glow"
-                : "bg-mid/20 text-sediment/40"
+                ? "bg-glow/20 text-glow hover:bg-glow/30"
+                : "bg-mid/20 text-sediment/40 hover:bg-mid/30 hover:text-sediment"
             }`}
           >
             {label[0]}
-          </span>
+          </button>
         ))}
       </div>
       <button
