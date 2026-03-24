@@ -33,7 +33,9 @@ from schedules.errors import (
 )
 from schedules.planning_schemas import (
     ContinuityPreviewOut,
+    CustomerScheduleOut,
     ScheduleFulfillmentOut,
+    ScheduleTimelineOut,
     ScheduleUtilizationOut,
 )
 from schedules.schemas import (
@@ -312,6 +314,34 @@ async def get_continuity_preview(
 ) -> dict:
     schedule = await repo.get_schedule_or_404(db, schedule_id)
     return await planning.compute_continuity_preview(db, schedule)
+
+
+@router.get(
+    "/{schedule_id}/timeline",
+    response_model=ScheduleTimelineOut,
+    responses=responses_from_api_errors(ScheduleNotFoundError),
+)
+async def get_timeline(
+    schedule_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    _admin: User = Depends(get_authenticated_admin_user),
+) -> dict:
+    schedule = await repo.get_schedule_or_404(db, schedule_id)
+    return await planning.compute_timeline(db, schedule)
+
+
+@router.get(
+    "/{schedule_id}/customer-schedule",
+    response_model=CustomerScheduleOut,
+    responses=responses_from_api_errors(ScheduleNotFoundError),
+)
+async def get_customer_schedule(
+    schedule_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    _admin: User = Depends(get_authenticated_admin_user),
+) -> dict:
+    schedule = await repo.get_schedule_or_404(db, schedule_id)
+    return await planning.compute_customer_schedule(db, schedule)
 
 
 # --- Auto-populate ---

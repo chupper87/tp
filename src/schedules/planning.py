@@ -12,7 +12,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from models import (
+    CareVisit,
     CustomerMeasure,
+    EmployeeCareVisit,
     Schedule,
     ScheduleCustomer,
     ScheduleEmployee,
@@ -366,4 +368,273 @@ async def compute_continuity_preview(db: AsyncSession, schedule: Schedule) -> di
         "schedule_id": schedule.id,
         "average_familiarity": round(avg, 3),
         "entries": entries,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Employee Timeline
+# ---------------------------------------------------------------------------
+
+
+def _time_to_minutes(t: time_type) -> int:
+    """Convert a time to minutes since midnight."""
+    return t.hour * 60 + t.minute
+
+
+def _minutes_to_time(minutes: int) -> time_type:
+    """Convert minutes since midnight to a time object."""
+    minutes = minutes % (24 * 60)
+    return time_type(minutes // 60, minutes % 60)
+
+
+async def compute_timeline(db: AsyncSession, schedule: Schedule) -> dict:
+    """Compute employee day timelines for a schedule.
+
+    Returns visit blocks grouped by employee, sorted by start time.
+    """
+    # Determine shift boundaries
+    shift_type = schedule.shift_type or "day"
+    boundaries = SHIFT_TIME_BOUNDARIES.get(shift_type, SHIFT_TIME_BOUNDARIES["day"])
+    shift_start, shift_end = boundaries
+
+    # Fetch care visits with planned_start_time, eager load everything
+    result = await db.execute(
+        select(CareVisit)
+        .where(
+            CareVisit.schedule_id == schedule.id,
+            CareVisit.planned_start_time.isnot(None),
+        )
+        .options(
+            selectinload(CareVisit.employees).selectinload(EmployeeCareVisit.employee),
+            selectinload(CareVisit.customer),
+            selectinload(CareVisit.schedule_measures).selectinload(
+                ScheduleMeasure.measure
+            ),
+        )
+    )
+    visits = list(result.scalars().unique().all())
+
+    # Get employees on this schedule
+    emp_result = await db.execute(
+        select(ScheduleEmployee)
+        .where(ScheduleEmployee.schedule_id == schedule.id)
+        .options(selectinload(ScheduleEmployee.employee))
+    )
+    schedule_employees = list(emp_result.scalars().all())
+
+    # Group visits by employee
+    emp_visits: dict[uuid.UUID, list[CareVisit]] = {}
+    for se in schedule_employees:
+        emp_visits[se.employee_id] = []
+
+    for visit in visits:
+        for ecv in visit.employees:
+            if ecv.employee_id in emp_visits:
+                emp_visits[ecv.employee_id].append(visit)
+
+    # Build response per employee
+    employees_out = []
+    for se in schedule_employees:
+        emp = se.employee
+        visit_list = sorted(
+            emp_visits.get(se.employee_id, []),
+            key=lambda v: v.planned_start_time or time_type(0, 0),
+        )
+
+        total_visit_min = 0
+        total_gap_min = 0
+        visits_out = []
+
+        for i, visit in enumerate(visit_list):
+            start = visit.planned_start_time
+            if start is None:
+                continue
+            start_min = _time_to_minutes(start)
+            end_min = start_min + visit.duration
+            end_time = _minutes_to_time(end_min)
+
+            measures_out = []
+            for sm in visit.schedule_measures:
+                dur = sm.custom_duration or sm.measure.default_duration
+                measures_out.append(
+                    {
+                        "schedule_measure_id": sm.id,
+                        "measure_id": sm.measure_id,
+                        "measure_name": sm.measure.name,
+                        "duration": dur,
+                    }
+                )
+
+            visits_out.append(
+                {
+                    "care_visit_id": visit.id,
+                    "customer_id": visit.customer_id,
+                    "customer_name": (
+                        f"{visit.customer.first_name} " f"{visit.customer.last_name}"
+                    ),
+                    "planned_start_time": start,
+                    "planned_end_time": end_time,
+                    "duration": visit.duration,
+                    "status": visit.status,
+                    "measures": measures_out,
+                }
+            )
+            total_visit_min += visit.duration
+
+            # Compute gap to next visit
+            if i + 1 < len(visit_list):
+                next_start = visit_list[i + 1].planned_start_time
+                if next_start is not None:
+                    gap = _time_to_minutes(next_start) - end_min
+                    if gap > 0:
+                        total_gap_min += gap
+
+        employees_out.append(
+            {
+                "employee_id": se.employee_id,
+                "employee_name": f"{emp.first_name} {emp.last_name}",
+                "total_visit_minutes": total_visit_min,
+                "total_gap_minutes": total_gap_min,
+                "visits": visits_out,
+            }
+        )
+
+    # Count unassigned measures
+    unassigned_result = await db.execute(
+        select(func.count())
+        .select_from(ScheduleMeasure)
+        .where(
+            ScheduleMeasure.schedule_id == schedule.id,
+            ScheduleMeasure.care_visit_id.is_(None),
+        )
+    )
+    unassigned_count = unassigned_result.scalar() or 0
+
+    return {
+        "schedule_id": schedule.id,
+        "shift_type": schedule.shift_type,
+        "shift_start": shift_start,
+        "shift_end": shift_end,
+        "employees": employees_out,
+        "unassigned_measures_count": unassigned_count,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Customer Schedule
+# ---------------------------------------------------------------------------
+
+
+async def compute_customer_schedule(db: AsyncSession, schedule: Schedule) -> dict:
+    """Compute per-customer visit schedule for a day.
+
+    Shows all visits a customer receives, with warnings for
+    time-of-day mismatches and hour overloads.
+    """
+    # Get customers on this schedule
+    cust_result = await db.execute(
+        select(ScheduleCustomer)
+        .where(ScheduleCustomer.schedule_id == schedule.id)
+        .options(selectinload(ScheduleCustomer.customer))
+    )
+    schedule_customers = list(cust_result.scalars().all())
+
+    if not schedule_customers:
+        return {"schedule_id": schedule.id, "customers": []}
+
+    customer_ids = [sc.customer_id for sc in schedule_customers]
+
+    # Fetch care visits for these customers on this schedule
+    result = await db.execute(
+        select(CareVisit)
+        .where(
+            CareVisit.schedule_id == schedule.id,
+            CareVisit.customer_id.in_(customer_ids),
+            CareVisit.planned_start_time.isnot(None),
+        )
+        .options(
+            selectinload(CareVisit.employees).selectinload(EmployeeCareVisit.employee),
+            selectinload(CareVisit.schedule_measures).selectinload(
+                ScheduleMeasure.measure
+            ),
+        )
+    )
+    all_visits = list(result.scalars().unique().all())
+
+    # Group by customer
+    visits_by_customer: dict[uuid.UUID, list[CareVisit]] = {}
+    for v in all_visits:
+        visits_by_customer.setdefault(v.customer_id, []).append(v)
+
+    # Night boundary — measures with time_of_day "night" should be >= 22:00
+    night_boundary = _time_to_minutes(time_type(22, 0))
+
+    customers_out = []
+    for sc in schedule_customers:
+        cust = sc.customer
+        customer_visits = sorted(
+            visits_by_customer.get(sc.customer_id, []),
+            key=lambda v: v.planned_start_time or time_type(0, 0),
+        )
+
+        total_planned = 0
+        visits_out = []
+        warnings: list[str] = []
+
+        for visit in customer_visits:
+            start = visit.planned_start_time
+            if start is None:
+                continue
+            start_min = _time_to_minutes(start)
+            end_min = start_min + visit.duration
+            end_time = _minutes_to_time(end_min)
+
+            emp_names = [
+                f"{ecv.employee.first_name} {ecv.employee.last_name}"
+                for ecv in visit.employees
+            ]
+
+            measures_out = []
+            for sm in visit.schedule_measures:
+                dur = sm.custom_duration or sm.measure.default_duration
+                measures_out.append(
+                    {
+                        "measure_name": sm.measure.name,
+                        "duration": dur,
+                    }
+                )
+                # Check time_of_day mismatch
+                if sm.time_of_day == "night" and start_min < night_boundary:
+                    warnings.append(
+                        f"{sm.measure.name} (natt) schemalagd "
+                        f"kl {start.strftime('%H:%M')}"
+                    )
+
+            visits_out.append(
+                {
+                    "care_visit_id": visit.id,
+                    "planned_start_time": start,
+                    "planned_end_time": end_time,
+                    "duration": visit.duration,
+                    "employee_names": emp_names,
+                    "measures": measures_out,
+                }
+            )
+            total_planned += visit.duration
+
+        customers_out.append(
+            {
+                "customer_id": sc.customer_id,
+                "customer_name": (f"{cust.first_name} {cust.last_name}"),
+                "care_level": cust.care_level,
+                "approved_hours_monthly": cust.approved_hours,
+                "total_planned_minutes_today": total_planned,
+                "visits": visits_out,
+                "warnings": warnings,
+            }
+        )
+
+    return {
+        "schedule_id": schedule.id,
+        "customers": customers_out,
     }
