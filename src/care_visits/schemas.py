@@ -1,6 +1,7 @@
 import uuid
 from datetime import date as date_type
 from datetime import datetime
+from datetime import time as time_type
 from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -24,13 +25,16 @@ class EmployeeOnVisitCreate(BaseModel):
 class CareVisitCreate(BaseModel):
     schedule_id: uuid.UUID
     customer_id: uuid.UUID
-    duration: int = Field(gt=0)
+    duration: Optional[int] = Field(default=None, gt=0)
+    planned_start_time: Optional[time_type] = None
     notes: Optional[str] = None
     employees: list[EmployeeOnVisitCreate] = Field(min_length=1)
+    schedule_measure_ids: Optional[list[uuid.UUID]] = None
 
 
 class CareVisitUpdate(BaseModel):
     duration: Optional[int] = Field(default=None, gt=0)
+    planned_start_time: Optional[time_type] = None
     notes: Optional[str] = None
 
 
@@ -79,6 +83,7 @@ class CareVisitOut(BaseModel):
     date: date_type
     status: str
     duration: int
+    planned_start_time: Optional[time_type]
     notes: Optional[str]
     schedule_id: uuid.UUID
     customer_id: uuid.UUID
@@ -93,6 +98,7 @@ class CareVisitDetailOut(BaseModel):
     date: date_type
     status: str
     duration: int
+    planned_start_time: Optional[time_type]
     notes: Optional[str]
     schedule_id: uuid.UUID
     customer_id: uuid.UUID

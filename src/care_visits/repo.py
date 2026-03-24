@@ -1,5 +1,6 @@
 import uuid
 from datetime import date as date_type
+from datetime import time as time_type
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,6 +14,8 @@ from care_visits.errors import (
     EmployeeNotOnScheduleForVisit,
     EmployeeNotOnVisit,
     InvalidStatusTransition,
+    MeasureAlreadyAssignedToVisit,
+    OverlappingVisit,
 )
 from care_visits.schemas import (
     AddEmployeeToVisit,
@@ -27,6 +30,7 @@ from models import (
     EmployeeCareVisit,
     ScheduleCustomer,
     ScheduleEmployee,
+    ScheduleMeasure,
 )
 
 log = get_logger(__name__)
@@ -52,6 +56,7 @@ def _relations() -> tuple:
     return (
         selectinload(CareVisit.employees).selectinload(EmployeeCareVisit.employee),
         selectinload(CareVisit.customer),
+        selectinload(CareVisit.schedule_measures).selectinload(ScheduleMeasure.measure),
     )
 
 
@@ -152,6 +157,83 @@ async def _check_customer_on_schedule(
         raise CustomerNotOnScheduleForVisit(customer_id, schedule_id)
 
 
+def _time_to_minutes(t: time_type) -> int:
+    """Convert a time to minutes since midnight."""
+    return t.hour * 60 + t.minute
+
+
+async def _check_no_overlap(
+    db: AsyncSession,
+    schedule_id: uuid.UUID,
+    employee_ids: list[uuid.UUID],
+    start_time: time_type,
+    duration: int,
+    exclude_visit_id: uuid.UUID | None = None,
+) -> None:
+    """Check that no existing visit overlaps the given time window for any employee."""
+    # Get all visits on this schedule that have a planned_start_time
+    q = (
+        select(CareVisit)
+        .join(EmployeeCareVisit, EmployeeCareVisit.care_visit_id == CareVisit.id)
+        .where(
+            CareVisit.schedule_id == schedule_id,
+            CareVisit.planned_start_time.isnot(None),
+            EmployeeCareVisit.employee_id.in_(employee_ids),
+        )
+    )
+    if exclude_visit_id is not None:
+        q = q.where(CareVisit.id != exclude_visit_id)
+
+    result = await db.execute(q.options(selectinload(CareVisit.employees)))
+    existing_visits = list(result.scalars().unique().all())
+
+    new_start = _time_to_minutes(start_time)
+    new_end = new_start + duration
+
+    for visit in existing_visits:
+        if visit.planned_start_time is None:
+            continue
+        v_start = _time_to_minutes(visit.planned_start_time)
+        v_end = v_start + visit.duration
+
+        # Check overlap: two intervals [a, b) and [c, d) overlap if a < d and c < b
+        if new_start < v_end and v_start < new_end:
+            # Find which employee(s) overlap
+            visit_emp_ids = {ecv.employee_id for ecv in visit.employees}
+            for eid in employee_ids:
+                if eid in visit_emp_ids:
+                    raise OverlappingVisit(eid, visit.id)
+
+
+async def _link_schedule_measures(
+    db: AsyncSession,
+    care_visit_id: uuid.UUID,
+    schedule_measure_ids: list[uuid.UUID],
+) -> int:
+    """Link schedule measures to a care visit.
+
+    Returns total duration of linked measures.
+    """
+    total_duration = 0
+    for sm_id in schedule_measure_ids:
+        result = await db.execute(
+            select(ScheduleMeasure)
+            .where(ScheduleMeasure.id == sm_id)
+            .options(selectinload(ScheduleMeasure.measure))
+        )
+        sm = result.scalar_one_or_none()
+        if sm is None:
+            continue
+
+        if sm.care_visit_id is not None and sm.care_visit_id != care_visit_id:
+            raise MeasureAlreadyAssignedToVisit(sm_id, sm.care_visit_id)
+
+        sm.care_visit_id = care_visit_id
+        total_duration += sm.custom_duration or sm.measure.default_duration
+
+    return total_duration
+
+
 async def create_care_visit(db: AsyncSession, data: CareVisitCreate) -> CareVisit:
     # Validate customer is on the schedule
     await _check_customer_on_schedule(db, data.schedule_id, data.customer_id)
@@ -168,11 +250,30 @@ async def create_care_visit(db: AsyncSession, data: CareVisitCreate) -> CareVisi
     )
     schedule = sched_result.scalar_one()
 
+    # If linking measures, compute duration from them when not explicitly provided
+    duration = data.duration
+    if data.schedule_measure_ids and duration is None:
+        # Will be computed after linking measures
+        duration = 0  # placeholder, will be updated below
+
+    if duration is None:
+        raise ValueError(
+            "duration is required when schedule_measure_ids is not provided"
+        )
+
+    # Check for overlap if start time is provided
+    employee_ids = [emp.employee_id for emp in data.employees]
+    if data.planned_start_time is not None:
+        await _check_no_overlap(
+            db, data.schedule_id, employee_ids, data.planned_start_time, duration
+        )
+
     care_visit = CareVisit(
         date=schedule.date,
         schedule_id=data.schedule_id,
         customer_id=data.customer_id,
-        duration=data.duration,
+        duration=duration,
+        planned_start_time=data.planned_start_time,
         notes=data.notes,
         status="planned",
     )
@@ -188,6 +289,16 @@ async def create_care_visit(db: AsyncSession, data: CareVisitCreate) -> CareVisi
                 notes=emp.notes,
             )
         )
+
+    # Link schedule measures to this visit
+    if data.schedule_measure_ids:
+        measures_duration = await _link_schedule_measures(
+            db, care_visit.id, data.schedule_measure_ids
+        )
+        # If duration was not explicitly provided, use sum of measure durations
+        if data.duration is None and measures_duration > 0:
+            care_visit.duration = measures_duration
+
     await db.commit()
 
     log.info(

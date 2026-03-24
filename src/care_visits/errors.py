@@ -64,6 +64,30 @@ class CareVisitMustHaveEmployee(Exception):
         super().__init__(f"Care visit {care_visit_id} must have at least one employee")
 
 
+class OverlappingVisit(Exception):
+    """A visit overlaps with an existing visit for the same employee."""
+
+    def __init__(self, employee_id: uuid.UUID, existing_visit_id: uuid.UUID) -> None:
+        self.employee_id = employee_id
+        self.existing_visit_id = existing_visit_id
+        super().__init__(
+            f"Visit overlaps with existing visit {existing_visit_id} "
+            f"for employee {employee_id}"
+        )
+
+
+class MeasureAlreadyAssignedToVisit(Exception):
+    """A schedule measure is already linked to another care visit."""
+
+    def __init__(self, schedule_measure_id: uuid.UUID, care_visit_id: uuid.UUID) -> None:
+        self.schedule_measure_id = schedule_measure_id
+        self.care_visit_id = care_visit_id
+        super().__init__(
+            f"Schedule measure {schedule_measure_id} is already assigned "
+            f"to care visit {care_visit_id}"
+        )
+
+
 # --- API error mappings ---
 
 
@@ -148,3 +172,33 @@ class CareVisitMustHaveEmployeeError(ApiError):
         cls, e: CareVisitMustHaveEmployee
     ) -> "CareVisitMustHaveEmployeeError":
         return cls(detail="A care visit must have at least one employee")
+
+
+@api_exception_handler(OverlappingVisit, status.HTTP_409_CONFLICT)
+class OverlappingVisitError(ApiError):
+    detail: str
+
+    @classmethod
+    def from_original_error(cls, e: OverlappingVisit) -> "OverlappingVisitError":
+        return cls(
+            detail=(
+                f"Visit overlaps with existing visit {e.existing_visit_id} "
+                f"for employee {e.employee_id}"
+            )
+        )
+
+
+@api_exception_handler(MeasureAlreadyAssignedToVisit, status.HTTP_409_CONFLICT)
+class MeasureAlreadyAssignedToVisitError(ApiError):
+    detail: str
+
+    @classmethod
+    def from_original_error(
+        cls, e: MeasureAlreadyAssignedToVisit
+    ) -> "MeasureAlreadyAssignedToVisitError":
+        return cls(
+            detail=(
+                f"Schedule measure {e.schedule_measure_id} is already "
+                f"assigned to another visit"
+            )
+        )
