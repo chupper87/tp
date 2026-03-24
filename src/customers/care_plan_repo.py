@@ -66,13 +66,16 @@ async def create_customer_measure(
     await _get_customer(db, customer_id)
     await _get_measure(db, data.measure_id)
 
-    # Check uniqueness
-    existing = await db.execute(
-        select(CustomerMeasure).where(
-            CustomerMeasure.customer_id == customer_id,
-            CustomerMeasure.measure_id == data.measure_id,
-        )
-    )
+    # Check uniqueness: same measure + same time_of_day for this customer
+    dup_filters = [
+        CustomerMeasure.customer_id == customer_id,
+        CustomerMeasure.measure_id == data.measure_id,
+    ]
+    if data.time_of_day is not None:
+        dup_filters.append(CustomerMeasure.time_of_day == data.time_of_day)
+    else:
+        dup_filters.append(CustomerMeasure.time_of_day.is_(None))
+    existing = await db.execute(select(CustomerMeasure).where(*dup_filters))
     if existing.scalar_one_or_none() is not None:
         raise CustomerMeasureDuplicate(customer_id, data.measure_id)
 

@@ -256,7 +256,12 @@ class CustomerMeasure(Base):
     )
 
     __table_args__ = (
-        UniqueConstraint("customer_id", "measure_id", name="uq__customer_measure"),
+        UniqueConstraint(
+            "customer_id",
+            "measure_id",
+            "time_of_day",
+            name="uq__customer_measure_time",
+        ),
     )
 
     customer: Mapped["Customer"] = relationship("Customer", back_populates="measures")
@@ -397,7 +402,8 @@ class ScheduleMeasure(Base):
             "schedule_id",
             "customer_id",
             "measure_id",
-            name="uq__schedule_customer_measure",
+            "time_of_day",
+            name="uq__schedule_customer_measure_time",
         ),
     )
 

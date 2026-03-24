@@ -73,11 +73,11 @@ export default function FulfillmentCard({
   const border = statusBorder(customer.total_fulfilled, customer.total_required);
   const badge = statusBadge(customer.total_fulfilled, customer.total_required);
 
-  // Build a lookup for schedule measures by measure_id for this customer
-  const smByMeasureId = new Map<string, ScheduleMeasureOut>();
+  // Build a lookup for schedule measures by (measure_id, time_of_day)
+  const smByKey = new Map<string, ScheduleMeasureOut>();
   for (const sm of scheduleMeasures) {
     if (sm.customer_id === customer.customer_id) {
-      smByMeasureId.set(sm.measure_id, sm);
+      smByKey.set(`${sm.measure_id}|${sm.time_of_day ?? ""}`, sm);
     }
   }
 
@@ -133,7 +133,7 @@ export default function FulfillmentCard({
             rm={rm}
             scheduleId={scheduleId}
             customerId={customer.customer_id}
-            scheduleMeasure={smByMeasureId.get(rm.measure_id)}
+            scheduleMeasure={smByKey.get(`${rm.measure_id}|${rm.time_of_day ?? ""}`)}
             measureInfo={measureMap.get(rm.measure_id)}
             onAutoAdd={() =>
               addMeasure.mutate({
@@ -151,7 +151,7 @@ export default function FulfillmentCard({
           <SoftMeasureRow
             key={rm.customer_measure_id}
             rm={rm}
-            scheduleMeasure={smByMeasureId.get(rm.measure_id)}
+            scheduleMeasure={smByKey.get(`${rm.measure_id}|${rm.time_of_day ?? ""}`)}
             scheduleId={scheduleId}
             customerId={customer.customer_id}
             measureInfo={measureMap.get(rm.measure_id)}

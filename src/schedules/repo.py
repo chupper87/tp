@@ -313,14 +313,17 @@ async def add_measure(
     if measure.scalar_one_or_none() is None:
         raise MeasureNotFound(data.measure_id)
 
-    # Unique per (schedule, customer, measure)
-    existing = await db.execute(
-        select(ScheduleMeasure).where(
-            ScheduleMeasure.schedule_id == schedule.id,
-            ScheduleMeasure.customer_id == data.customer_id,
-            ScheduleMeasure.measure_id == data.measure_id,
-        )
-    )
+    # Unique per (schedule, customer, measure, time_of_day)
+    dup_filters = [
+        ScheduleMeasure.schedule_id == schedule.id,
+        ScheduleMeasure.customer_id == data.customer_id,
+        ScheduleMeasure.measure_id == data.measure_id,
+    ]
+    if data.time_of_day is not None:
+        dup_filters.append(ScheduleMeasure.time_of_day == data.time_of_day)
+    else:
+        dup_filters.append(ScheduleMeasure.time_of_day.is_(None))
+    existing = await db.execute(select(ScheduleMeasure).where(*dup_filters))
     if existing.scalar_one_or_none() is not None:
         raise MeasureAlreadyOnSchedule(data.customer_id, data.measure_id)
 
@@ -406,15 +409,17 @@ async def auto_populate_measures(
             ScheduleMeasure.customer_id == customer_id,
         )
     )
-    existing_measure_ids = {sm.measure_id for sm in result.scalars().all()}
+    # Track by (measure_id, time_of_day) since same measure can appear
+    # multiple times with different time_of_day
+    existing_keys = {(sm.measure_id, sm.time_of_day) for sm in result.scalars().all()}
 
     # Determine day of week
     day_name = WEEKDAY_NAMES[schedule.date.weekday()]
 
     created: list[ScheduleMeasure] = []
     for cm in care_plans:
-        # Skip if already on schedule
-        if cm.measure_id in existing_measure_ids:
+        # Skip if already on schedule with same time_of_day
+        if (cm.measure_id, cm.time_of_day) in existing_keys:
             continue
 
         # Check if applicable to this day

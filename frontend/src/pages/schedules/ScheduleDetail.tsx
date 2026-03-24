@@ -133,7 +133,7 @@ export default function ScheduleDetail() {
   const assignedMeasureKeys = useMemo(() => {
     const keys = new Set<string>();
     for (const m of schedule?.measures ?? []) {
-      keys.add(`${m.customer_id}|${m.measure_id}`);
+      keys.add(`${m.customer_id}|${m.measure_id}|${m.time_of_day ?? ""}`);
     }
     return keys;
   }, [schedule?.measures]);
@@ -247,7 +247,7 @@ export default function ScheduleDetail() {
     } else if (dragType === "measure" && dropZone === "customer-measures") {
       const customerId = over.data.current?.customerId as string;
       const measureId = active.data.current!.id as string;
-      if (!assignedMeasureKeys.has(`${customerId}|${measureId}`)) {
+      if (!assignedMeasureKeys.has(`${customerId}|${measureId}|`)) {
         addMeasure.mutate({
           customer_id: customerId,
           measure_id: measureId,

@@ -82,10 +82,10 @@ async def compute_fulfillment(db: AsyncSession, schedule: Schedule) -> dict:
     )
     scheduled_measures = list(result.scalars().all())
 
-    # Index scheduled measures by (customer_id, measure_id)
-    scheduled_set: dict[tuple[uuid.UUID, uuid.UUID], ScheduleMeasure] = {}
+    # Index scheduled measures by (customer_id, measure_id, time_of_day)
+    scheduled_set: dict[tuple[uuid.UUID, uuid.UUID, str | None], ScheduleMeasure] = {}
     for sm in scheduled_measures:
-        scheduled_set[(sm.customer_id, sm.measure_id)] = sm
+        scheduled_set[(sm.customer_id, sm.measure_id, sm.time_of_day)] = sm
 
     # Group care plans by customer
     care_plans_by_customer: dict[uuid.UUID, list[CustomerMeasure]] = {}
@@ -110,7 +110,7 @@ async def compute_fulfillment(db: AsyncSession, schedule: Schedule) -> dict:
             if is_required is None:
                 continue  # Not applicable to this day
 
-            key = (sc.customer_id, cm.measure_id)
+            key = (sc.customer_id, cm.measure_id, cm.time_of_day)
             sm = scheduled_set.get(key)
             is_fulfilled = sm is not None
 
