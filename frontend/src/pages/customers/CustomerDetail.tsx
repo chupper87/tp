@@ -118,7 +118,8 @@ export default function CustomerDetail() {
     );
   }
 
-  const assignedMeasureIds = new Set(measures?.map((m) => m.measure_id) ?? []);
+  // No longer filter out assigned measures — same measure can be added
+  // multiple times with different time_of_day (e.g. Tillsyn morning + night)
 
   return (
     <div className="p-8 max-w-[1000px]">
@@ -244,7 +245,6 @@ export default function CustomerDetail() {
               <AddMeasureForm
                 customerId={id!}
                 allMeasures={allMeasures ?? []}
-                excludeIds={assignedMeasureIds}
               />
             </>
           )}
@@ -317,11 +317,9 @@ function CarePlanRow({
 function AddMeasureForm({
   customerId,
   allMeasures,
-  excludeIds,
 }: {
   customerId: string;
   allMeasures: MeasureBrief[];
-  excludeIds: Set<string>;
 }) {
   const [open, setOpen] = useState(false);
   const [measureId, setMeasureId] = useState("");
@@ -333,7 +331,7 @@ function AddMeasureForm({
   const add = useAddCustomerMeasure(customerId);
   const error = add.error as ApiError | null;
 
-  const available = allMeasures.filter((m) => !excludeIds.has(m.id));
+  const available = allMeasures;
   const selected = allMeasures.find((m) => m.id === measureId);
 
   function handleSubmit() {
