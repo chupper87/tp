@@ -23,6 +23,7 @@ import {
   useScheduleFulfillment,
   useScheduleUtilization,
   useContinuityPreview,
+  useAutoPopulateMeasures,
 } from "./hooks";
 import type { ApiError } from "../../api/client";
 import type { EmployeeBrief, CustomerBrief } from "./types";
@@ -89,6 +90,13 @@ export default function ScheduleDetail() {
   const assignEmployee = useAssignEmployee(id!);
   const assignCustomer = useAssignCustomer(id!);
   const addMeasure = useAddMeasure(id!);
+  const autoPopulate = useAutoPopulateMeasures(id!);
+
+  // Auto-populate toast state
+  const [autoPopulatePrompt, setAutoPopulatePrompt] = useState<{
+    customerId: string;
+    customerName: string;
+  } | null>(null);
 
   // DnD state
   const [activeItem, setActiveItem] = useState<{
@@ -221,9 +229,21 @@ export default function ScheduleDetail() {
         employee_id: active.data.current!.id as string,
       });
     } else if (dragType === "customer" && dropZone === "customers") {
-      assignCustomer.mutate({
-        customer_id: active.data.current!.id as string,
-      });
+      const custId = active.data.current!.id as string;
+      const cust = allCustomers?.find((c) => c.id === custId);
+      assignCustomer.mutate(
+        { customer_id: custId },
+        {
+          onSuccess: () => {
+            if (cust) {
+              setAutoPopulatePrompt({
+                customerId: custId,
+                customerName: `${cust.first_name} ${cust.last_name}`,
+              });
+            }
+          },
+        },
+      );
     } else if (dragType === "measure" && dropZone === "customer-measures") {
       const customerId = over.data.current?.customerId as string;
       const measureId = active.data.current!.id as string;
@@ -404,7 +424,16 @@ export default function ScheduleDetail() {
                 excludeIds={assignedCustomerIds}
                 placeholder="Lägg till kund"
                 onSelect={(cust) =>
-                  assignCustomer.mutate({ customer_id: cust.id })
+                  assignCustomer.mutate(
+                    { customer_id: cust.id },
+                    {
+                      onSuccess: () =>
+                        setAutoPopulatePrompt({
+                          customerId: cust.id,
+                          customerName: `${cust.first_name} ${cust.last_name}`,
+                        }),
+                    },
+                  )
                 }
                 renderExtra={(cust) => {
                   if (!cust.care_level) return null;
@@ -460,6 +489,37 @@ export default function ScheduleDetail() {
           </div>
         </div>
       </div>
+
+      {/* Auto-populate toast */}
+      {autoPopulatePrompt && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-fade-up">
+          <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-deep border border-reef/60 shadow-[0_4px_24px_rgba(0,0,0,0.5)]">
+            <ListChecks className="w-4 h-4 text-glow shrink-0" />
+            <span className="text-sm text-moon">
+              Lägg till insatser för{" "}
+              <span className="font-600">
+                {autoPopulatePrompt.customerName}
+              </span>{" "}
+              automatiskt?
+            </span>
+            <button
+              onClick={() => {
+                autoPopulate.mutate(autoPopulatePrompt.customerId);
+                setAutoPopulatePrompt(null);
+              }}
+              className="px-3 py-1 rounded-lg bg-glow/15 text-glow text-xs font-600 hover:bg-glow/25 transition-colors cursor-pointer"
+            >
+              Ja, lägg till
+            </button>
+            <button
+              onClick={() => setAutoPopulatePrompt(null)}
+              className="px-3 py-1 rounded-lg bg-mid/30 text-mist/60 text-xs font-600 hover:bg-mid/50 transition-colors cursor-pointer"
+            >
+              Nej
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Drag overlay — the floating ghost card */}
       <DragOverlay>

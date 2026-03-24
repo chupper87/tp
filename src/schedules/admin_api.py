@@ -312,3 +312,34 @@ async def get_continuity_preview(
 ) -> dict:
     schedule = await repo.get_schedule_or_404(db, schedule_id)
     return await planning.compute_continuity_preview(db, schedule)
+
+
+# --- Auto-populate ---
+
+
+@router.post(
+    "/{schedule_id}/auto-populate/{customer_id}",
+    response_model=list[ScheduleMeasureOut],
+    responses=responses_from_api_errors(
+        ScheduleNotFoundError,
+        CustomerNotOnScheduleForMeasureError,
+    ),
+)
+async def auto_populate_measures(
+    schedule_id: uuid.UUID,
+    customer_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_authenticated_admin_user),
+) -> list[ScheduleMeasure]:
+    schedule = await repo.get_schedule_or_404(db, schedule_id)
+    created = await repo.auto_populate_measures(db, schedule, customer_id)
+    if created:
+        await audit_log(
+            db,
+            user_id=admin.id,
+            action="auto_populated",
+            resource_type="schedule_measures",
+            resource_id=schedule_id,
+            changes={"customer_id": str(customer_id), "count": len(created)},
+        )
+    return created

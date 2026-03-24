@@ -12,6 +12,7 @@ from measures.errors import MeasureNotFound
 from models import (
     Absence,
     Customer,
+    CustomerMeasure,
     Employee,
     Measure,
     Schedule,
@@ -356,3 +357,93 @@ async def remove_measure(db: AsyncSession, sm: ScheduleMeasure) -> None:
     await db.delete(sm)
     await db.commit()
     log.info("removed_schedule_measure", schedule_measure_id=str(sm.id))
+
+
+# --- Auto-populate ---
+
+WEEKDAY_NAMES = [
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday",
+    "sunday",
+]
+
+
+async def auto_populate_measures(
+    db: AsyncSession, schedule: Schedule, customer_id: uuid.UUID
+) -> list[ScheduleMeasure]:
+    """Auto-add applicable care plan measures for a customer on this schedule.
+
+    Skips measures already on the schedule. Returns list of created ScheduleMeasures.
+    """
+    from sqlalchemy.orm import selectinload as sil
+
+    # Verify customer is on schedule
+    on_schedule = await db.execute(
+        select(ScheduleCustomer).where(
+            ScheduleCustomer.schedule_id == schedule.id,
+            ScheduleCustomer.customer_id == customer_id,
+        )
+    )
+    if on_schedule.scalar_one_or_none() is None:
+        raise CustomerNotOnScheduleForMeasure(customer_id, schedule.id)
+
+    # Get customer's care plan measures
+    result = await db.execute(
+        select(CustomerMeasure)
+        .where(CustomerMeasure.customer_id == customer_id)
+        .options(sil(CustomerMeasure.measure))
+    )
+    care_plans = list(result.scalars().all())
+
+    # Get already-scheduled measures for this customer on this schedule
+    result = await db.execute(
+        select(ScheduleMeasure).where(
+            ScheduleMeasure.schedule_id == schedule.id,
+            ScheduleMeasure.customer_id == customer_id,
+        )
+    )
+    existing_measure_ids = {sm.measure_id for sm in result.scalars().all()}
+
+    # Determine day of week
+    day_name = WEEKDAY_NAMES[schedule.date.weekday()]
+
+    created: list[ScheduleMeasure] = []
+    for cm in care_plans:
+        # Skip if already on schedule
+        if cm.measure_id in existing_measure_ids:
+            continue
+
+        # Check if applicable to this day
+        if cm.frequency == "daily":
+            pass  # Always applicable
+        elif cm.frequency == "weekly":
+            if cm.days_of_week and day_name not in cm.days_of_week:
+                continue
+        else:
+            # biweekly/monthly — skip for auto-populate
+            continue
+
+        sm = ScheduleMeasure(
+            schedule_id=schedule.id,
+            customer_id=customer_id,
+            measure_id=cm.measure_id,
+            time_of_day=cm.time_of_day,
+            custom_duration=cm.customer_duration,
+        )
+        db.add(sm)
+        created.append(sm)
+
+    if created:
+        await db.commit()
+        log.info(
+            "auto_populated_measures",
+            schedule_id=str(schedule.id),
+            customer_id=str(customer_id),
+            count=len(created),
+        )
+
+    return created

@@ -187,3 +187,20 @@ export function useRemoveMeasure(scheduleId: string) {
     scheduleId,
   );
 }
+
+export function useAutoPopulateMeasures(scheduleId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (customerId: string) =>
+      api.post(`/schedules/${scheduleId}/auto-populate/${customerId}`, {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["schedules", scheduleId] });
+      queryClient.invalidateQueries({
+        queryKey: ["schedules", scheduleId, "fulfillment"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["schedules", scheduleId, "utilization"],
+      });
+    },
+  });
+}
