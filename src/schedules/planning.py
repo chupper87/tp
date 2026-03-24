@@ -5,7 +5,7 @@ to show admins coverage gaps, employee workload, and continuity impact.
 """
 
 import uuid
-from datetime import date as date_type, timedelta
+from datetime import date as date_type, time as time_type, timedelta
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -29,6 +29,14 @@ SHIFT_DURATIONS: dict[str, int] = {
 
 LUNCH_DEDUCTION_MINUTES = 30
 LUNCH_THRESHOLD_MINUTES = 360  # Deduct lunch for shifts >= 6h
+
+# Shift clock-time boundaries (start, end)
+SHIFT_TIME_BOUNDARIES: dict[str, tuple[time_type, time_type]] = {
+    "morning": (time_type(6, 0), time_type(14, 0)),
+    "day": (time_type(8, 0), time_type(16, 0)),
+    "evening": (time_type(14, 0), time_type(22, 0)),
+    "night": (time_type(22, 0), time_type(6, 0)),  # crosses midnight
+}
 
 # Map Python weekday (0=Monday) to day name
 WEEKDAY_NAMES = [

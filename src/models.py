@@ -1,11 +1,12 @@
 import uuid
 from datetime import date as date_type
 from datetime import datetime
+from datetime import time as time_type
 from enum import StrEnum
 from typing import Literal, Optional
 
 from sqlalchemy import Boolean, CheckConstraint, Date, DateTime, Float, ForeignKey
-from sqlalchemy import Index, Integer, String, Text, UniqueConstraint, text
+from sqlalchemy import Index, Integer, String, Text, Time, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.ext.asyncio import AsyncAttrs
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -393,6 +394,11 @@ class ScheduleMeasure(Base):
     time_of_day: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     custom_duration: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     notes: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    care_visit_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("care_visits.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -410,6 +416,9 @@ class ScheduleMeasure(Base):
     schedule: Mapped["Schedule"] = relationship(back_populates="measures")
     customer: Mapped["Customer"] = relationship(back_populates="schedule_measures")
     measure: Mapped["Measure"] = relationship(back_populates="schedules")
+    care_visit: Mapped[Optional["CareVisit"]] = relationship(
+        back_populates="schedule_measures"
+    )
 
 
 class ScheduleArchive(Base):
@@ -452,6 +461,7 @@ class CareVisit(Base):
         ]
     ] = mapped_column(String, nullable=False, default="planned")
     duration: Mapped[int] = mapped_column(Integer, nullable=False)
+    planned_start_time: Mapped[Optional[time_type]] = mapped_column(Time, nullable=True)
     notes: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     schedule_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("schedules.id"), nullable=False
@@ -475,12 +485,16 @@ class CareVisit(Base):
         Index("ix_care_visit_customer_date", "customer_id", "date"),
         Index("ix_care_visit_status_date", "status", "date"),
         Index("ix_care_visit_schedule_date", "schedule_id", "date"),
+        Index("ix_care_visit_schedule_start", "schedule_id", "planned_start_time"),
     )
 
     schedule: Mapped["Schedule"] = relationship("Schedule", back_populates="care_visits")
     customer: Mapped["Customer"] = relationship(back_populates="care_visits")
     employees: Mapped[list["EmployeeCareVisit"]] = relationship(
         back_populates="care_visit", cascade="all, delete-orphan"
+    )
+    schedule_measures: Mapped[list["ScheduleMeasure"]] = relationship(
+        back_populates="care_visit"
     )
 
 
