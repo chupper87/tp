@@ -6,6 +6,9 @@ import type {
   EmployeeBrief,
   CustomerBrief,
   MeasureBrief,
+  ScheduleFulfillment,
+  ScheduleUtilization,
+  ContinuityPreview,
 } from "./types";
 
 // --- Queries ---
@@ -49,6 +52,37 @@ export function useActiveMeasures() {
     queryKey: ["measures", { active: true }],
     queryFn: () => api.get<MeasureBrief[]>("/measures/?is_active=true"),
     staleTime: 60_000,
+  });
+}
+
+// --- Planning intelligence queries ---
+
+export function useScheduleFulfillment(scheduleId: string) {
+  return useQuery({
+    queryKey: ["schedules", scheduleId, "fulfillment"],
+    queryFn: () =>
+      api.get<ScheduleFulfillment>(`/schedules/${scheduleId}/fulfillment`),
+    enabled: !!scheduleId,
+  });
+}
+
+export function useScheduleUtilization(scheduleId: string) {
+  return useQuery({
+    queryKey: ["schedules", scheduleId, "utilization"],
+    queryFn: () =>
+      api.get<ScheduleUtilization>(`/schedules/${scheduleId}/utilization`),
+    enabled: !!scheduleId,
+  });
+}
+
+export function useContinuityPreview(scheduleId: string) {
+  return useQuery({
+    queryKey: ["schedules", scheduleId, "continuity"],
+    queryFn: () =>
+      api.get<ContinuityPreview>(
+        `/schedules/${scheduleId}/continuity-preview`,
+      ),
+    enabled: !!scheduleId,
   });
 }
 

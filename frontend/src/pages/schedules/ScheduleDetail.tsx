@@ -20,15 +20,19 @@ import {
   useAssignEmployee,
   useAssignCustomer,
   useAddMeasure,
+  useScheduleFulfillment,
+  useScheduleUtilization,
+  useContinuityPreview,
 } from "./hooks";
 import type { ApiError } from "../../api/client";
+import type { EmployeeBrief, CustomerBrief } from "./types";
 import EmployeeSection from "./components/EmployeeSection";
 import CustomerSection from "./components/CustomerSection";
 import MeasuresSection from "./components/MeasuresSection";
+import SummaryBar from "./components/SummaryBar";
 import ResourcePool from "./components/ResourcePool";
 import DraggableCard from "./components/DraggableCard";
 import PersonSearchDropdown from "./components/PersonSearchDropdown";
-import type { EmployeeBrief, CustomerBrief } from "./types";
 
 const ROLE_LABELS: Record<string, string> = {
   assistant_nurse: "USK",
@@ -50,7 +54,13 @@ const CARE_LEVEL_LABELS: Record<string, string> = {
 };
 
 const WEEKDAY_FULL = [
-  "Söndag", "Måndag", "Tisdag", "Onsdag", "Torsdag", "Fredag", "Lördag",
+  "Söndag",
+  "Måndag",
+  "Tisdag",
+  "Onsdag",
+  "Torsdag",
+  "Fredag",
+  "Lördag",
 ];
 
 function formatFullDate(dateStr: string): string {
@@ -70,6 +80,11 @@ export default function ScheduleDetail() {
   const { data: allEmployees } = useActiveEmployees();
   const { data: allCustomers } = useActiveCustomers();
   const { data: allMeasures } = useActiveMeasures();
+
+  // Planning intelligence queries
+  const { data: fulfillment } = useScheduleFulfillment(id!);
+  const { data: utilization } = useScheduleUtilization(id!);
+  const { data: continuity } = useContinuityPreview(id!);
 
   const assignEmployee = useAssignEmployee(id!);
   const assignCustomer = useAssignCustomer(id!);
@@ -147,6 +162,18 @@ export default function ScheduleDetail() {
     });
   }, [allMeasures, measureQuery]);
 
+  // Compute summary totals from fulfillment data
+  const summaryTotals = useMemo(() => {
+    const customers = fulfillment?.customers ?? [];
+    let totalRequired = 0;
+    let totalFulfilled = 0;
+    for (const c of customers) {
+      totalRequired += c.total_required;
+      totalFulfilled += c.total_fulfilled;
+    }
+    return { totalRequired, totalFulfilled };
+  }, [fulfillment]);
+
   // DnD handlers
   function handleDragStart(event: DragStartEvent) {
     const { type, id: itemId } = event.active.data.current as {
@@ -190,13 +217,16 @@ export default function ScheduleDetail() {
     const dropZone = over.data.current?.zone as string;
 
     if (dragType === "employee" && dropZone === "employees") {
-      assignEmployee.mutate({ employee_id: active.data.current!.id as string });
+      assignEmployee.mutate({
+        employee_id: active.data.current!.id as string,
+      });
     } else if (dragType === "customer" && dropZone === "customers") {
-      assignCustomer.mutate({ customer_id: active.data.current!.id as string });
+      assignCustomer.mutate({
+        customer_id: active.data.current!.id as string,
+      });
     } else if (dragType === "measure" && dropZone === "customer-measures") {
       const customerId = over.data.current?.customerId as string;
       const measureId = active.data.current!.id as string;
-      // Check if already assigned to this customer
       if (!assignedMeasureKeys.has(`${customerId}|${measureId}`)) {
         addMeasure.mutate({
           customer_id: customerId,
@@ -276,7 +306,9 @@ export default function ScheduleDetail() {
               placeholder="Sök anställd..."
             >
               {filteredEmployees.length === 0 ? (
-                <p className="text-xs text-sediment py-1">Inga tillgängliga</p>
+                <p className="text-xs text-sediment py-1">
+                  Inga tillgängliga
+                </p>
               ) : (
                 filteredEmployees.map((emp) => (
                   <DraggableCard key={emp.id} id={emp.id} type="employee">
@@ -298,7 +330,9 @@ export default function ScheduleDetail() {
               placeholder="Sök kund..."
             >
               {filteredCustomers.length === 0 ? (
-                <p className="text-xs text-sediment py-1">Inga tillgängliga</p>
+                <p className="text-xs text-sediment py-1">
+                  Inga tillgängliga
+                </p>
               ) : (
                 filteredCustomers.map((cust) => (
                   <DraggableCard key={cust.id} id={cust.id} type="customer">
@@ -308,10 +342,12 @@ export default function ScheduleDetail() {
                     {cust.care_level && (
                       <span
                         className={`text-[10px] px-1.5 py-0.5 rounded shrink-0 ${
-                          CARE_LEVEL_COLORS[cust.care_level] ?? "bg-mid/40 text-mist/50"
+                          CARE_LEVEL_COLORS[cust.care_level] ??
+                          "bg-mid/40 text-mist/50"
                         }`}
                       >
-                        {CARE_LEVEL_LABELS[cust.care_level] ?? cust.care_level}
+                        {CARE_LEVEL_LABELS[cust.care_level] ??
+                          cust.care_level}
                       </span>
                     )}
                   </DraggableCard>
@@ -320,14 +356,26 @@ export default function ScheduleDetail() {
             </ResourcePool>
           </div>
 
-          {/* Center: schedule board */}
+          {/* Center: planning cockpit */}
           <div className="space-y-4">
+            {/* Summary bar */}
+            <SummaryBar
+              totalRequired={summaryTotals.totalRequired}
+              totalFulfilled={summaryTotals.totalFulfilled}
+              totalPlannedMinutes={utilization?.total_planned_minutes ?? 0}
+              totalCapacityMinutes={utilization?.total_capacity_minutes ?? 0}
+              utilizationPct={utilization?.utilization_pct ?? 0}
+              averageFamiliarity={continuity?.average_familiarity ?? 0}
+              employeeCount={utilization?.employee_count ?? 0}
+            />
+
             {/* Employee + Customer drop zones */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <EmployeeSection
                 scheduleId={schedule.id}
                 employees={schedule.employees}
                 assignError={assignEmployee.error as ApiError | null}
+                familiarityEntries={continuity?.entries ?? []}
               />
               <CustomerSection
                 scheduleId={schedule.id}
@@ -363,7 +411,8 @@ export default function ScheduleDetail() {
                   return (
                     <span
                       className={`text-[10px] px-1.5 py-0.5 rounded ${
-                        CARE_LEVEL_COLORS[cust.care_level] ?? "bg-mid/40 text-mist/50"
+                        CARE_LEVEL_COLORS[cust.care_level] ??
+                        "bg-mid/40 text-mist/50"
                       }`}
                     >
                       {CARE_LEVEL_LABELS[cust.care_level]}
@@ -373,11 +422,12 @@ export default function ScheduleDetail() {
               />
             </div>
 
-            {/* Measures section */}
+            {/* Fulfillment cards */}
             <MeasuresSection
               scheduleId={schedule.id}
               customers={schedule.customers}
               measures={schedule.measures}
+              fulfillmentCustomers={fulfillment?.customers ?? []}
             />
           </div>
 
@@ -390,7 +440,9 @@ export default function ScheduleDetail() {
               placeholder="Sök insats..."
             >
               {filteredMeasures.length === 0 ? (
-                <p className="text-xs text-sediment py-1">Inga tillgängliga</p>
+                <p className="text-xs text-sediment py-1">
+                  Inga tillgängliga
+                </p>
               ) : (
                 filteredMeasures.map((meas) => (
                   <DraggableCard key={meas.id} id={meas.id} type="measure">
