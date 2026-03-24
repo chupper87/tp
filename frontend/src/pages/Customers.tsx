@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Heart, Plus, Search } from "lucide-react";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 
 interface CustomerOut {
@@ -29,6 +30,7 @@ const careLevelLabels: Record<string, string> = {
 };
 
 export default function Customers() {
+  const navigate = useNavigate();
   const [search, setSearch] = useState("");
 
   const { data: customers, isLoading } = useQuery({
@@ -93,7 +95,7 @@ export default function Customers() {
             </thead>
             <tbody>
               {filtered.map((cust) => (
-                <tr key={cust.id} className="border-b border-reef/30 hover:bg-mid/20 transition-colors cursor-pointer">
+                <tr key={cust.id} onClick={() => navigate(`/customers/${cust.id}`)} className="border-b border-reef/30 hover:bg-mid/20 transition-colors cursor-pointer">
                   <td className="px-5 py-3">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-mid flex items-center justify-center text-xs font-700 text-current/80">
