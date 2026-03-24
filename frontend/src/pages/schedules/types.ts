@@ -112,3 +112,71 @@ export interface ContinuityPreview {
   average_familiarity: number;
   entries: EmployeeCustomerFamiliarity[];
 }
+
+// --- Employee Timeline ---
+
+export interface TimelineMeasure {
+  schedule_measure_id: string;
+  measure_id: string;
+  measure_name: string;
+  duration: number;
+}
+
+export interface TimelineVisit {
+  care_visit_id: string;
+  customer_id: string;
+  customer_name: string;
+  planned_start_time: string; // "HH:MM:SS"
+  planned_end_time: string;
+  duration: number;
+  status: string;
+  measures: TimelineMeasure[];
+}
+
+export interface EmployeeTimeline {
+  employee_id: string;
+  employee_name: string;
+  total_visit_minutes: number;
+  total_gap_minutes: number;
+  visits: TimelineVisit[];
+}
+
+export interface ScheduleTimeline {
+  schedule_id: string;
+  shift_type: string | null;
+  shift_start: string; // "HH:MM:SS"
+  shift_end: string;
+  employees: EmployeeTimeline[];
+  unassigned_measures_count: number;
+}
+
+// --- Customer Schedule ---
+
+export interface CustomerVisitMeasure {
+  measure_name: string;
+  duration: number;
+}
+
+export interface CustomerVisit {
+  care_visit_id: string;
+  planned_start_time: string;
+  planned_end_time: string;
+  duration: number;
+  employee_names: string[];
+  measures: CustomerVisitMeasure[];
+}
+
+export interface CustomerDay {
+  customer_id: string;
+  customer_name: string;
+  care_level: string | null;
+  approved_hours_monthly: number | null;
+  total_planned_minutes_today: number;
+  visits: CustomerVisit[];
+  warnings: string[];
+}
+
+export interface CustomerSchedule {
+  schedule_id: string;
+  customers: CustomerDay[];
+}

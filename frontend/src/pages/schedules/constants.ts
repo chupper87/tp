@@ -71,3 +71,60 @@ export function isToday(date: Date): boolean {
     date.getDate() === now.getDate()
   );
 }
+
+// --- Timeline utilities ---
+
+export const SHIFT_TIME_BOUNDARIES: Record<string, { start: string; end: string }> = {
+  morning: { start: "06:00", end: "14:00" },
+  day: { start: "08:00", end: "16:00" },
+  evening: { start: "14:00", end: "22:00" },
+  night: { start: "22:00", end: "06:00" },
+};
+
+/** Parse "HH:MM" or "HH:MM:SS" into total minutes since midnight. */
+export function timeToMinutes(timeStr: string): number {
+  const [h, m] = timeStr.split(":").map(Number);
+  return h * 60 + m;
+}
+
+/** Convert minutes since midnight to "HH:MM" string. */
+export function minutesToTime(minutes: number): string {
+  const m = ((minutes % (24 * 60)) + 24 * 60) % (24 * 60);
+  const hh = String(Math.floor(m / 60)).padStart(2, "0");
+  const mm = String(m % 60).padStart(2, "0");
+  return `${hh}:${mm}`;
+}
+
+/** Get shift duration in minutes, handling midnight wrap. */
+export function shiftDurationMinutes(startStr: string, endStr: string): number {
+  const start = timeToMinutes(startStr);
+  const end = timeToMinutes(endStr);
+  if (end > start) return end - start;
+  return 24 * 60 - start + end;
+}
+
+/** Get position (0–100%) of a time within a shift. */
+export function timePositionPercent(
+  timeStr: string,
+  shiftStart: string,
+  shiftEnd: string,
+): number {
+  const total = shiftDurationMinutes(shiftStart, shiftEnd);
+  if (total === 0) return 0;
+  const start = timeToMinutes(shiftStart);
+  const t = timeToMinutes(timeStr);
+  let offset = t - start;
+  if (offset < 0) offset += 24 * 60;
+  return (offset / total) * 100;
+}
+
+/** Get width (0–100%) for a duration within a shift. */
+export function durationWidthPercent(
+  durationMin: number,
+  shiftStart: string,
+  shiftEnd: string,
+): number {
+  const total = shiftDurationMinutes(shiftStart, shiftEnd);
+  if (total === 0) return 0;
+  return (durationMin / total) * 100;
+}

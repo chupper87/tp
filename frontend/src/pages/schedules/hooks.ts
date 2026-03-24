@@ -9,6 +9,8 @@ import type {
   ScheduleFulfillment,
   ScheduleUtilization,
   ContinuityPreview,
+  ScheduleTimeline,
+  CustomerSchedule,
 } from "./types";
 
 // --- Queries ---
@@ -81,6 +83,28 @@ export function useContinuityPreview(scheduleId: string) {
     queryFn: () =>
       api.get<ContinuityPreview>(
         `/schedules/${scheduleId}/continuity-preview`,
+      ),
+    enabled: !!scheduleId,
+  });
+}
+
+// --- Timeline queries ---
+
+export function useScheduleTimeline(scheduleId: string) {
+  return useQuery({
+    queryKey: ["schedules", scheduleId, "timeline"],
+    queryFn: () =>
+      api.get<ScheduleTimeline>(`/schedules/${scheduleId}/timeline`),
+    enabled: !!scheduleId,
+  });
+}
+
+export function useCustomerSchedule(scheduleId: string) {
+  return useQuery({
+    queryKey: ["schedules", scheduleId, "customer-schedule"],
+    queryFn: () =>
+      api.get<CustomerSchedule>(
+        `/schedules/${scheduleId}/customer-schedule`,
       ),
     enabled: !!scheduleId,
   });
@@ -186,6 +210,53 @@ export function useRemoveMeasure(scheduleId: string) {
     (p) => `/schedules/${scheduleId}/measures/${p.id}`,
     scheduleId,
   );
+}
+
+export function useCreateCareVisit(scheduleId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: {
+      schedule_id: string;
+      customer_id: string;
+      planned_start_time: string;
+      duration?: number;
+      employees: { employee_id: string; is_primary: boolean }[];
+      schedule_measure_ids?: string[];
+    }) => api.post("/care-visits/", payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["schedules", scheduleId, "timeline"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["schedules", scheduleId, "customer-schedule"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["schedules", scheduleId, "utilization"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["schedules", scheduleId, "fulfillment"],
+      });
+    },
+  });
+}
+
+export function useDeleteCareVisit(scheduleId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (careVisitId: string) =>
+      api.delete(`/care-visits/${careVisitId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["schedules", scheduleId, "timeline"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["schedules", scheduleId, "customer-schedule"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["schedules", scheduleId, "utilization"],
+      });
+    },
+  });
 }
 
 export function useAutoPopulateMeasures(scheduleId: string) {
