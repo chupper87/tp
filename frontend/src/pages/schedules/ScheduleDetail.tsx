@@ -34,6 +34,9 @@ import SummaryBar from "./components/SummaryBar";
 import ResourcePool from "./components/ResourcePool";
 import DraggableCard from "./components/DraggableCard";
 import PersonSearchDropdown from "./components/PersonSearchDropdown";
+import TimelineView from "./components/TimelineView";
+import CustomerScheduleView from "./components/CustomerScheduleView";
+import CreateVisitModal from "./components/CreateVisitModal";
 
 const ROLE_LABELS: Record<string, string> = {
   assistant_nurse: "USK",
@@ -91,6 +94,11 @@ export default function ScheduleDetail() {
   const assignCustomer = useAssignCustomer(id!);
   const addMeasure = useAddMeasure(id!);
   const autoPopulate = useAutoPopulateMeasures(id!);
+
+  // View tab state
+  type ViewTab = "planning" | "employees" | "customers";
+  const [activeView, setActiveView] = useState<ViewTab>("planning");
+  const [showCreateVisit, setShowCreateVisit] = useState(false);
 
   // Auto-populate toast state
   const [autoPopulatePrompt, setAutoPopulatePrompt] = useState<{
@@ -389,75 +397,117 @@ export default function ScheduleDetail() {
               employeeCount={utilization?.employee_count ?? 0}
             />
 
-            {/* Employee + Customer drop zones */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <EmployeeSection
-                scheduleId={schedule.id}
-                employees={schedule.employees}
-                assignError={assignEmployee.error as ApiError | null}
-                familiarityEntries={continuity?.entries ?? []}
-              />
-              <CustomerSection
-                scheduleId={schedule.id}
-                customers={schedule.customers}
-                assignError={assignCustomer.error as ApiError | null}
-              />
+            {/* View tabs */}
+            <div className="flex items-center gap-1 p-1 rounded-lg bg-mid/20 border border-reef/20 w-fit">
+              {(
+                [
+                  { key: "planning", label: "Planering" },
+                  { key: "employees", label: "Anställda" },
+                  { key: "customers", label: "Kunder" },
+                ] as const
+              ).map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveView(tab.key)}
+                  className={`px-3 py-1.5 rounded-md text-xs font-600 transition-colors cursor-pointer ${
+                    activeView === tab.key
+                      ? "bg-glow/15 text-glow border border-glow/20"
+                      : "text-mist/50 hover:text-moon hover:bg-mid/20 border border-transparent"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
             </div>
 
-            {/* Fallback search dropdowns */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <PersonSearchDropdown<EmployeeBrief>
-                items={allEmployees ?? []}
-                excludeIds={assignedEmployeeIds}
-                placeholder="Lägg till anställd"
-                onSelect={(emp) =>
-                  assignEmployee.mutate({ employee_id: emp.id })
-                }
-                renderExtra={(emp) => (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-mid/40 text-mist/50">
-                    {ROLE_LABELS[emp.role] ?? emp.role}
-                  </span>
-                )}
-              />
-              <PersonSearchDropdown<CustomerBrief>
-                items={allCustomers ?? []}
-                excludeIds={assignedCustomerIds}
-                placeholder="Lägg till kund"
-                onSelect={(cust) =>
-                  assignCustomer.mutate(
-                    { customer_id: cust.id },
-                    {
-                      onSuccess: () =>
-                        setAutoPopulatePrompt({
-                          customerId: cust.id,
-                          customerName: `${cust.first_name} ${cust.last_name}`,
-                        }),
-                    },
-                  )
-                }
-                renderExtra={(cust) => {
-                  if (!cust.care_level) return null;
-                  return (
-                    <span
-                      className={`text-[10px] px-1.5 py-0.5 rounded ${
-                        CARE_LEVEL_COLORS[cust.care_level] ??
-                        "bg-mid/40 text-mist/50"
-                      }`}
-                    >
-                      {CARE_LEVEL_LABELS[cust.care_level]}
-                    </span>
-                  );
-                }}
-              />
-            </div>
+            {/* Planning view */}
+            {activeView === "planning" && (
+              <>
+                {/* Employee + Customer drop zones */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <EmployeeSection
+                    scheduleId={schedule.id}
+                    employees={schedule.employees}
+                    assignError={assignEmployee.error as ApiError | null}
+                    familiarityEntries={continuity?.entries ?? []}
+                  />
+                  <CustomerSection
+                    scheduleId={schedule.id}
+                    customers={schedule.customers}
+                    assignError={assignCustomer.error as ApiError | null}
+                  />
+                </div>
 
-            {/* Fulfillment cards */}
-            <MeasuresSection
-              scheduleId={schedule.id}
-              customers={schedule.customers}
-              measures={schedule.measures}
-              fulfillmentCustomers={fulfillment?.customers ?? []}
-            />
+                {/* Fallback search dropdowns */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <PersonSearchDropdown<EmployeeBrief>
+                    items={allEmployees ?? []}
+                    excludeIds={assignedEmployeeIds}
+                    placeholder="Lägg till anställd"
+                    onSelect={(emp) =>
+                      assignEmployee.mutate({ employee_id: emp.id })
+                    }
+                    renderExtra={(emp) => (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-mid/40 text-mist/50">
+                        {ROLE_LABELS[emp.role] ?? emp.role}
+                      </span>
+                    )}
+                  />
+                  <PersonSearchDropdown<CustomerBrief>
+                    items={allCustomers ?? []}
+                    excludeIds={assignedCustomerIds}
+                    placeholder="Lägg till kund"
+                    onSelect={(cust) =>
+                      assignCustomer.mutate(
+                        { customer_id: cust.id },
+                        {
+                          onSuccess: () =>
+                            setAutoPopulatePrompt({
+                              customerId: cust.id,
+                              customerName: `${cust.first_name} ${cust.last_name}`,
+                            }),
+                        },
+                      )
+                    }
+                    renderExtra={(cust) => {
+                      if (!cust.care_level) return null;
+                      return (
+                        <span
+                          className={`text-[10px] px-1.5 py-0.5 rounded ${
+                            CARE_LEVEL_COLORS[cust.care_level] ??
+                            "bg-mid/40 text-mist/50"
+                          }`}
+                        >
+                          {CARE_LEVEL_LABELS[cust.care_level]}
+                        </span>
+                      );
+                    }}
+                  />
+                </div>
+
+                {/* Fulfillment cards */}
+                <MeasuresSection
+                  scheduleId={schedule.id}
+                  customers={schedule.customers}
+                  measures={schedule.measures}
+                  fulfillmentCustomers={fulfillment?.customers ?? []}
+                />
+              </>
+            )}
+
+            {/* Employee timeline view */}
+            {activeView === "employees" && (
+              <TimelineView
+                scheduleId={schedule.id}
+                scheduleDate={schedule.date}
+                onCreateVisit={() => setShowCreateVisit(true)}
+              />
+            )}
+
+            {/* Customer schedule view */}
+            {activeView === "customers" && (
+              <CustomerScheduleView scheduleId={schedule.id} />
+            )}
           </div>
 
           {/* Right pool: measures */}
@@ -519,6 +569,17 @@ export default function ScheduleDetail() {
             </button>
           </div>
         </div>
+      )}
+
+      {/* Create visit modal */}
+      {showCreateVisit && schedule && (
+        <CreateVisitModal
+          scheduleId={schedule.id}
+          employees={schedule.employees}
+          customers={schedule.customers}
+          measures={schedule.measures}
+          onClose={() => setShowCreateVisit(false)}
+        />
       )}
 
       {/* Drag overlay — the floating ghost card */}
