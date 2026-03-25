@@ -429,12 +429,12 @@ export default function ScheduleDetail() {
                     scheduleId={schedule.id}
                     employees={schedule.employees}
                     assignError={assignEmployee.error as ApiError | null}
-                    familiarityEntries={continuity?.entries ?? []}
                   />
                   <CustomerSection
                     scheduleId={schedule.id}
                     customers={schedule.customers}
                     assignError={assignCustomer.error as ApiError | null}
+                    familiarityEntries={continuity?.entries ?? []}
                   />
                 </div>
 

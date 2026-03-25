@@ -1,5 +1,4 @@
 import { ListChecks, Clock, Users } from "lucide-react";
-import ScoreRing from "../../../components/ScoreRing";
 
 interface SummaryBarProps {
   totalRequired: number;
@@ -15,6 +14,12 @@ function utilizationColor(pct: number): string {
   if (pct > 100) return "var(--color-coral)";
   if (pct >= 80) return "var(--color-sun)";
   return "var(--color-glow)";
+}
+
+function continuityColor(score: number): string {
+  if (score >= 0.8) return "var(--color-glow)";
+  if (score >= 0.5) return "var(--color-sun)";
+  return "var(--color-coral)";
 }
 
 export default function SummaryBar({
@@ -103,24 +108,36 @@ export default function SummaryBar({
       </div>
 
       {/* Continuity cell */}
-      <div className="flex-1 px-4 py-3 flex items-center gap-3">
-        <div className="flex-1">
-          <div className="flex items-center gap-1.5 mb-1.5">
-            <Users className="w-3.5 h-3.5 text-mist/50" />
-            <span className="text-[10px] text-sediment uppercase tracking-widest font-600">
-              Kontinuitet
-            </span>
-          </div>
+      <div className="flex-1 px-4 py-3">
+        <div className="flex items-center gap-1.5 mb-1.5">
+          <Users
+            className="w-3.5 h-3.5"
+            style={{ color: continuityColor(averageFamiliarity) }}
+          />
+          <span className="text-[10px] text-sediment uppercase tracking-widest font-600">
+            Kontinuitet
+          </span>
+        </div>
+        <div className="flex items-baseline gap-1.5">
+          <span
+            className="font-data text-lg font-600"
+            style={{ color: continuityColor(averageFamiliarity) }}
+          >
+            {Math.round(averageFamiliarity * 100)}%
+          </span>
           <span className="text-[10px] text-sediment">
             {employeeCount} anställda
           </span>
         </div>
-        <ScoreRing
-          score={averageFamiliarity}
-          size={40}
-          strokeWidth={2.5}
-          label={`${Math.round(averageFamiliarity * 100)}% kontinuitet`}
-        />
+        <div className="mt-2 h-1 rounded-full bg-reef overflow-hidden">
+          <div
+            className="h-full rounded-full transition-all duration-700 ease-out"
+            style={{
+              width: `${Math.min(averageFamiliarity * 100, 100)}%`,
+              backgroundColor: continuityColor(averageFamiliarity),
+            }}
+          />
+        </div>
       </div>
     </div>
   );
