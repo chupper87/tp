@@ -1,5 +1,4 @@
 import { X, Loader2, AlertCircle } from "lucide-react";
-import ScoreRing from "../../../components/ScoreRing";
 import { useRemoveCustomer } from "../hooks";
 import type { ScheduleCustomerOut, EmployeeCustomerFamiliarity } from "../types";
 import type { ApiError } from "../../../api/client";
@@ -66,12 +65,20 @@ export default function CustomerSection({
                 {sc.customer.first_name} {sc.customer.last_name}
               </span>
               {famScore !== undefined && (
-                <ScoreRing
-                  score={famScore}
-                  size={24}
-                  strokeWidth={2}
-                  label={`${Math.round(famScore * 100)}% kontinuitet`}
-                />
+                <span
+                  className="font-data text-[11px] font-600 tabular-nums"
+                  style={{
+                    color:
+                      famScore >= 0.8
+                        ? "var(--color-glow)"
+                        : famScore >= 0.5
+                          ? "var(--color-sun)"
+                          : "var(--color-coral)",
+                  }}
+                  title={`${Math.round(famScore * 100)}% kontinuitet`}
+                >
+                  {Math.round(famScore * 100)}%
+                </span>
               )}
               <button
                 onClick={() => remove.mutate({ customer_id: sc.customer_id })}
