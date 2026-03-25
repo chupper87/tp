@@ -55,9 +55,9 @@ export default function TimelineView({
       </div>
 
       {/* Timeline container */}
-      <div className="rounded-xl bg-ocean/40 border border-reef/30 overflow-hidden">
+      <div className="rounded-xl bg-ocean/40 border border-reef/30 overflow-visible">
         {/* Time axis */}
-        <div className="border-b border-reef/20 bg-deep/60">
+        <div className="border-b border-reef/20 bg-deep/60 rounded-t-xl">
           <TimelineAxis
             shiftStart={shiftStart}
             shiftEnd={shiftEnd}
