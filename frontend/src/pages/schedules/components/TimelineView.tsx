@@ -1,5 +1,5 @@
 import { AlertTriangle, Loader2 } from "lucide-react";
-import { useScheduleTimeline, useDeleteCareVisit } from "../hooks";
+import { useScheduleTimeline, useDeleteCareVisit, useUpdateCareVisit } from "../hooks";
 import TimelineAxis from "./TimelineAxis";
 import EmployeeTimelineRow from "./EmployeeTimelineRow";
 
@@ -16,6 +16,7 @@ export default function TimelineView({
 }: TimelineViewProps) {
   const { data: timeline, isLoading } = useScheduleTimeline(scheduleId);
   const deleteVisit = useDeleteCareVisit(scheduleId);
+  const updateVisit = useUpdateCareVisit(scheduleId);
 
   if (isLoading) {
     return (
@@ -93,6 +94,10 @@ export default function TimelineView({
                 shiftStart={shiftStart}
                 shiftEnd={shiftEnd}
                 onDeleteVisit={(id) => deleteVisit.mutate(id)}
+                onUpdateVisitTime={(id, time) =>
+                  updateVisit.mutate({ careVisitId: id, planned_start_time: time })
+                }
+                isUpdatingVisit={updateVisit.isPending}
               />
             ))}
           </div>

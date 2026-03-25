@@ -25,7 +25,9 @@ export default function TimelineAxis({
       const h = Math.floor(min / 60);
       const m = min % 60;
       const isMajor = m === 0;
-      const label = isMajor ? String(h).padStart(2, "0") : "";
+      const label = isMajor
+        ? `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`
+        : "";
       const pct = (offset / totalMin) * 100;
       result.push({ label, pct, isMajor });
     }

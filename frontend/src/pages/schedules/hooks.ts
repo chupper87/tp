@@ -240,6 +240,32 @@ export function useCreateCareVisit(scheduleId: string) {
   });
 }
 
+export function useUpdateCareVisit(scheduleId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: {
+      careVisitId: string;
+      planned_start_time?: string;
+      duration?: number;
+      notes?: string;
+    }) => {
+      const { careVisitId, ...body } = payload;
+      return api.patch(`/care-visits/${careVisitId}`, body);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["schedules", scheduleId, "timeline"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["schedules", scheduleId, "customer-schedule"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["schedules", scheduleId, "utilization"],
+      });
+    },
+  });
+}
+
 export function useDeleteCareVisit(scheduleId: string) {
   const queryClient = useQueryClient();
   return useMutation({

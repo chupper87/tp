@@ -12,6 +12,8 @@ interface EmployeeTimelineRowProps {
   shiftStart: string;
   shiftEnd: string;
   onDeleteVisit?: (careVisitId: string) => void;
+  onUpdateVisitTime?: (careVisitId: string, newStartTime: string) => void;
+  isUpdatingVisit?: boolean;
 }
 
 export default function EmployeeTimelineRow({
@@ -19,6 +21,8 @@ export default function EmployeeTimelineRow({
   shiftStart,
   shiftEnd,
   onDeleteVisit,
+  onUpdateVisitTime,
+  isUpdatingVisit,
 }: EmployeeTimelineRowProps) {
   return (
     <div className="flex items-stretch group/row">
@@ -58,6 +62,8 @@ export default function EmployeeTimelineRow({
               leftPct={leftPct}
               widthPct={widthPct}
               onDelete={onDeleteVisit}
+              onUpdateTime={onUpdateVisitTime}
+              isUpdating={isUpdatingVisit}
             />
           );
         })}

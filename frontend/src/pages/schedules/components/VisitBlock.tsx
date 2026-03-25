@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Clock, Trash2, X } from "lucide-react";
+import { Clock, Trash2, X, Loader2 } from "lucide-react";
 import { timeToMinutes, minutesToTime } from "../constants";
 import type { TimelineVisit } from "../types";
 
@@ -8,6 +8,8 @@ interface VisitBlockProps {
   leftPct: number;
   widthPct: number;
   onDelete?: (careVisitId: string) => void;
+  onUpdateTime?: (careVisitId: string, newStartTime: string) => void;
+  isUpdating?: boolean;
 }
 
 const STATUS_STYLES: Record<string, string> = {
@@ -21,16 +23,28 @@ export default function VisitBlock({
   leftPct,
   widthPct,
   onDelete,
+  onUpdateTime,
+  isUpdating,
 }: VisitBlockProps) {
   const [expanded, setExpanded] = useState(false);
   const startStr = minutesToTime(timeToMinutes(visit.planned_start_time));
   const endStr = minutesToTime(timeToMinutes(visit.planned_end_time));
+
+  const [editingTime, setEditingTime] = useState(false);
+  const [timeValue, setTimeValue] = useState(startStr);
 
   const style = STATUS_STYLES[visit.status] ?? STATUS_STYLES.planned;
   const totalMeasureDuration = visit.measures.reduce(
     (acc, m) => acc + m.duration,
     0,
   );
+
+  function handleTimeSave() {
+    if (timeValue !== startStr && onUpdateTime) {
+      onUpdateTime(visit.care_visit_id, timeValue + ":00");
+    }
+    setEditingTime(false);
+  }
 
   return (
     <>
@@ -79,14 +93,71 @@ export default function VisitBlock({
               <p className="text-sm font-600 text-moon">
                 {visit.customer_name}
               </p>
-              <p className="font-data text-xs text-mist/60">
-                {startStr} – {endStr} · {visit.duration} min
-              </p>
+              {/* Editable time row */}
+              {editingTime ? (
+                <div className="flex items-center gap-1.5 mt-1">
+                  <input
+                    type="time"
+                    value={timeValue}
+                    onChange={(e) => setTimeValue(e.target.value)}
+                    step={900}
+                    autoFocus
+                    className="w-[90px] px-1.5 py-0.5 rounded-md bg-ocean/60 border border-reef/40 text-xs text-moon font-data
+                      focus:outline-none focus:border-glow/50 transition-colors"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleTimeSave();
+                      if (e.key === "Escape") {
+                        setTimeValue(startStr);
+                        setEditingTime(false);
+                      }
+                    }}
+                  />
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleTimeSave();
+                    }}
+                    disabled={isUpdating}
+                    className="px-2 py-0.5 rounded-md bg-glow/15 text-glow text-[10px] font-600
+                      hover:bg-glow/25 border border-glow/20 transition-colors cursor-pointer
+                      disabled:opacity-50"
+                  >
+                    {isUpdating ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      "Spara"
+                    )}
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setTimeValue(startStr);
+                      setEditingTime(false);
+                    }}
+                    className="text-sediment hover:text-moon text-[10px] transition-colors cursor-pointer"
+                  >
+                    Avbryt
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setTimeValue(startStr);
+                    setEditingTime(true);
+                  }}
+                  className="font-data text-xs text-mist/60 hover:text-glow transition-colors cursor-pointer mt-0.5"
+                  title="Klicka för att ändra tid"
+                >
+                  {startStr} – {endStr} · {visit.duration} min
+                </button>
+              )}
             </div>
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 setExpanded(false);
+                setEditingTime(false);
               }}
               className="p-1 rounded-md hover:bg-mid/30 text-sediment hover:text-moon transition-colors cursor-pointer"
             >
