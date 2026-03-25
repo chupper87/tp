@@ -45,9 +45,9 @@ export default function MeasureEditPopover({
     update.mutate(
       {
         id: measure.id,
-        ...(timeOfDay ? { time_of_day: timeOfDay } : {}),
-        ...(customDuration ? { custom_duration: parseInt(customDuration, 10) } : {}),
-        ...(notes ? { notes } : {}),
+        time_of_day: timeOfDay || null,
+        custom_duration: customDuration ? parseInt(customDuration, 10) : null,
+        notes: notes || null,
       },
       { onSuccess: () => onClose() },
     );

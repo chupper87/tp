@@ -198,9 +198,9 @@ export function useAddMeasure(scheduleId: string) {
 export function useUpdateMeasure(scheduleId: string) {
   return useScheduleMutation<{
     id: string;
-    time_of_day?: string;
-    custom_duration?: number;
-    notes?: string;
+    time_of_day?: string | null;
+    custom_duration?: number | null;
+    notes?: string | null;
   }>("patch", (p) => `/schedules/${scheduleId}/measures/${p.id}`, scheduleId);
 }
 

@@ -1,10 +1,11 @@
 import { useState, useMemo } from "react";
 import { X, Clock, Check } from "lucide-react";
-import { useCreateCareVisit } from "../hooks";
+import { useCreateCareVisit, useActiveMeasures } from "../hooks";
 import type {
   ScheduleEmployeeOut,
   ScheduleCustomerOut,
   ScheduleMeasureOut,
+  MeasureBrief,
 } from "../types";
 
 interface CreateVisitModalProps {
@@ -23,6 +24,7 @@ export default function CreateVisitModal({
   onClose,
 }: CreateVisitModalProps) {
   const createVisit = useCreateCareVisit(scheduleId);
+  const { data: allMeasures } = useActiveMeasures();
 
   const [customerId, setCustomerId] = useState("");
   const [employeeId, setEmployeeId] = useState("");
@@ -31,6 +33,15 @@ export default function CreateVisitModal({
     new Set(),
   );
   const [durationOverride, setDurationOverride] = useState<string>("");
+
+  // Lookup map: measure_id → MeasureBrief (name, default_duration, etc.)
+  const measureMap = useMemo(() => {
+    const map = new Map<string, MeasureBrief>();
+    for (const m of allMeasures ?? []) {
+      map.set(m.id, m);
+    }
+    return map;
+  }, [allMeasures]);
 
   // Measures for selected customer that aren't linked to a visit
   const availableMeasures = useMemo(() => {
@@ -43,11 +54,14 @@ export default function CreateVisitModal({
     let total = 0;
     for (const m of availableMeasures) {
       if (selectedMeasureIds.has(m.id)) {
-        total += m.custom_duration ?? 0;
+        total +=
+          m.custom_duration ??
+          measureMap.get(m.measure_id)?.default_duration ??
+          0;
       }
     }
     return total;
-  }, [availableMeasures, selectedMeasureIds]);
+  }, [availableMeasures, selectedMeasureIds, measureMap]);
 
   const finalDuration = durationOverride
     ? parseInt(durationOverride, 10)
@@ -214,11 +228,11 @@ export default function CreateVisitModal({
                           {selected && <Check className="w-2.5 h-2.5" />}
                         </div>
                         <span className="text-xs text-mist/80 flex-1 truncate">
-                          {m.notes || `Insats`}
+                          {measureMap.get(m.measure_id)?.name ?? m.notes ?? "Insats"}
                         </span>
                         <span className="font-data text-[10px] text-sediment flex items-center gap-0.5">
                           <Clock className="w-2.5 h-2.5" />
-                          {m.custom_duration ?? "?"}m
+                          {m.custom_duration ?? measureMap.get(m.measure_id)?.default_duration ?? "?"}m
                         </span>
                       </button>
                     );
